@@ -97,9 +97,9 @@ class ControllerResolver{
                 );
             }
 
-            if(null !== $route){
-                $route = $this->reader->getMethodAnnotation($method, Route::class);
+            $route = $this->reader->getMethodAnnotation($method, Route::class);
 
+            if(null !== $route){
                 if(null !== $parent){
                     $route->setParent($parent);
                 }
