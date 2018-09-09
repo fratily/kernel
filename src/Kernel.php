@@ -131,7 +131,14 @@ class Kernel{
             new Controller\ActionMiddleware($this->container, $action, $routing)
         );
 
-        return $this->requestHandler->handle($request);
+        return $this->requestHandler->handle(
+            $request
+                ->withAttribute("kernel.container", $this->container)
+                ->withAttribute("kernel.routes", $this->routeCollector)
+                ->withAttribute("kernel.responseFactory", $this->responseFactory)
+                ->withAttribute("kernel.environment", $this->environment)
+                ->withAttribute("kernel.debug", $this->debug)
+        );
     }
 
     /**
