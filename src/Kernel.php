@@ -25,7 +25,7 @@ use Psr\Http\Server\MiddlewareInterface;
 /**
  *
  */
-abstract class Kernel{
+class Kernel{
 
     /**
      * @var string
