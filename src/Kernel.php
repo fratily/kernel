@@ -17,6 +17,8 @@ use Fratily\Container\Container;
 use Fratily\Router\RouteCollector;
 use Fratily\Http\Server\RequestHandler;
 use Psr\Http\Message\ServerRequestInterface;
+use Psr\Http\Message\ResponseInterface;
+use Psr\Http\Message\ResponseFactoryInterface;
 use Psr\Http\Server\MiddlewareInterface;
 
 
@@ -51,9 +53,9 @@ abstract class Kernel{
     private $controllerResolver;
 
     /**
-     * @var RequestHandler
+     * @var ResponseFactoryInterface
      */
-    private $requestHandler;
+    private $responseFactory;
 
     /**
      * @var RouteCollector
@@ -61,19 +63,21 @@ abstract class Kernel{
     private $routeCollector;
 
     /**
-     * @var MiddlewareInterface[][]
+     * @var RequestHandler
      */
-    private $middlewares    = [
-        "before"    => [],
-        "after"     => [],
-    ];
+    private $requestHandler;
+
+    /**
+     * @var Controller\DummyActionMiddleware
+     */
+    private $dummyAction;
 
     public function __construct(
         string $environment,
         bool $debug,
         Container $container,
         Controller\ControllerResolver $ctrlResolver = null,
-        RequestHandler $requestHandler = null,
+        ResponseFactoryInterface $responseFactory = null,
         RouteCollector $routeCollector = null
     ){
         $this->environment          = $environment;
@@ -84,40 +88,50 @@ abstract class Kernel{
                 new \Doctrine\Common\Annotations\AnnotationReader()
             )
         ;
-        $this->requestHandler       = $requestHandler
-            ?? new RequestHandler(
-                new \Fratily\Http\Message\ResponseFactory()
-            )
+        $this->responseFactory  = $responseFactory
+            ?? new \Fratily\Http\Message\ResponseFactory()
         ;
-        $this->routeCollector       = $routeCollector ?? new RouteCollector();
+        $this->routeCollector   = $routeCollector ?? new RouteCollector();
+        $this->requestHandler   = new RequestHandler($this->responseFactory);
+        $this->dummyAction      = new Controller\DummyActionMiddleware();
+
+        $this->requestHandler->append($this->dummyAction);
     }
 
+    /**
+     * リクエストハンドラを用いてリクエストをレスポンスに変換する
+     *
+     * @param   ServerRequestInterface  $request
+     *  リクエストインスタンス
+     *
+     * @return  ResponseInterface
+     */
     public function handle(ServerRequestInterface $request){
         $router = $this->routeCollector
             ->router($request->getUri()->getHost(), $request->getMethod())
         ;
-        $result = $router->search($request->getUri()->getPath());
 
-        if($result->found){
-            $action = [
-                $this->container->getInstance(
-                    $result->data["action"]["class"]
-                ),
-                $result->data["action"]["method"],
-            ];
-        }else{
-            $action = function(){
-                throw new \Fratily\Http\Message\Status\NotFound();
-            };
-        }
+        $routing    = $router->search($request->getUri()->getPath());
+        $action     = $routing->found
+            ?
+                [
+                    $this->container->getInstance(
+                        $routing->data["action"]["class"]
+                    ),
+                    $routing->data["action"]["method"],
+                ]
+            :
+                function(){
+                    throw new \Fratily\Http\Message\Status\NotFound();
+                }
+        ;
 
-        $middlewares    = array_merge(
-            $this->middlewares["before"],
-            $result->data["middleware.before"],
-            $this->createActionMiddleware($action, $result->params),
-            $result->data["middleware.before"],
-            $this->middlewares["after"]
+        $this->requestHandler->replaceObject(
+            $this->dummyAction,
+            new Controller\ActionMiddleware($this->container, $action, $routing)
         );
+
+        return $this->requestHandler->handle($request);
     }
 
     /**
@@ -146,7 +160,7 @@ abstract class Kernel{
      * @return  $this
      */
     public function append(MiddlewareInterface $middleware){
-        $this->middlewares["after"][]   = $middleware;
+        $this->requestHandler->append($middleware);
 
         return $this;
     }
@@ -159,7 +173,7 @@ abstract class Kernel{
      * @return  $this
      */
     public function prepend(MiddlewareInterface $middleware){
-        array_unshift($this->middlewares["before"], $middleware);
+        $this->requestHandler->prepend($middleware);
 
         return $this;
     }
@@ -172,7 +186,7 @@ abstract class Kernel{
      * @return  $this
      */
     public function addBeforeAction(MiddlewareInterface $middleware){
-        $this->middlewares["before"][]  = $middleware;
+        $this->requestHandler->insertBeforeObject($this->dummyAction, $middleware);
 
         return $this;
     }
@@ -185,7 +199,7 @@ abstract class Kernel{
      * @return  $this
      */
     public function addAfterAction(MiddlewareInterface $middleware){
-        array_unshift($this->middlewares["after"], $middleware);
+        $this->requestHandler->insertAfterObject($this->dummyAction, $middleware);
 
         return $this;
     }
