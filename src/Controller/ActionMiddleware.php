@@ -1,6 +1,6 @@
 <?php
 /**
- * FratilyPHP Router
+ * FratilyPHP Kernel
  *
  * Licensed under The MIT License
  * For full copyright and license information, please see the LICENSE.
