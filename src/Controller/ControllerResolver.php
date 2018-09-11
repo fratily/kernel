@@ -47,6 +47,62 @@ class ControllerResolver{
         }
     }
 
+    protected function isController(string $class, bool $throw = true){
+        try{
+            // is exists?
+            if(!class_exists($class)){
+                throw new \InvalidArgumentException(
+                    "Class '{$class}' not found."
+                );
+            }
+
+            $ref    = new \ReflectionClass($class);
+
+            // is instantiable?
+            if(!$ref->isInstantiable()){
+                throw new \InvalidArgumentException(
+                    "Class '{$ref->getName()}' is not instantiable."
+                );
+            }
+
+            // must extends AbstractController
+            if(!is_subclass_of($class, AbstractController::class)){
+                $parent = AbstractController::class;
+                throw new Exception\ControllerException(
+                    "Controller must inherit {$parent}."
+                    . " But {$ref->getName()} dose not inherit it."
+                );
+            }
+
+            // end Controller
+            if("Controller" !== substr($ref->getShortName(), -10)){
+                throw new Exception\ControllerException(
+                    "The name of the controller class must end with 'Controller'."
+                    . " But {$ref->getName()} does not end with 'Controller'."
+                );
+            }
+
+            if(
+                $this->baseName !== ""
+                && 0 !== strpos($ref->getName(), $this->baseName)
+            ){
+                throw new Exception\ControllerException(
+                    "Controller class namespace must begin with '{$this->baseName}'"
+                    . " But the namespace of {$ref->getName()}"
+                    . "dose not begin with '{$this->baseName}'"
+                );
+            }
+        }catch(\Exception $e){
+            if($throw){
+                throw $e;
+            }
+
+            return false;
+        }
+
+        return true;
+    }
+
     /**
      * コントローラ内の全てのアクションのルート定義を取得する
      *
@@ -59,31 +115,10 @@ class ControllerResolver{
      * @throws  Exception\AnnotationException
      */
     public function getRoutes(string $controller){
-        if(!class_exists($controller)){
-            throw new \InvalidArgumentException(
-                "Class '{$controller}' not found."
-            );
-        }
+        $this->isController($controller, true);
 
         $class  = new \ReflectionClass($controller);
         $result = [];
-
-        if(
-            $this->baseName !== ""
-            && 0 !== strpos($class->getName(), $this->baseName)
-        ){
-            throw new \InvalidArgumentException(
-                "Class {$class->getName()} is not recognized as a controller, "
-                . "because its name does not begin with {$this->baseName}."
-            );
-        }
-
-        if(!$class->isInstantiable()){
-            throw new \InvalidArgumentException(
-                "Class '{$class->getName()}' is not instantiable."
-            );
-        }
-
         $parent = $this->getParentRouteAnnotation($class);
 
         foreach($class->getMethods(\ReflectionMethod::IS_PUBLIC) as $method){
@@ -108,7 +143,7 @@ class ControllerResolver{
 
                 if(null === $route->getName()){
                     $route  = $route->withName(
-                        $this->getRouteName($class, $method)
+                        $this->getRouteName($method)
                     );
                 }
 
@@ -165,36 +200,33 @@ class ControllerResolver{
     /**
      * アクションメソッドのルート名を取得する
      *
-     * @param   \ReflectionClass    $class
-     *  コントローラークラスのリフレクションインスタンス
      * @param   \ReflectionMethod   $method
      *  アクションメソッドのリフレクションインスタンス
      *
      * @return  string
      */
-    public function getRouteName(\ReflectionClass $class, \ReflectionMethod $method){
-        if($this->baseName !== "" && 0 !== strpos($class->getName(), $this->baseName)){
-            throw new \InvalidArgumentException(
-                "Class {$class->getName()} is not recognized as a controller, "
-                . "because its name does not begin with {$this->baseName}."
-            );
-        }
+    public function getRouteName(\ReflectionMethod $method){
+        $this->isController($method->getDeclaringClass()->getName());
+
+        $class  = $method->getDeclaringClass();
 
         return
             implode(
                 "_",
-                explode(
-                    "\\",
-                    strtolower(
+                array_map(
+                    "lcfirst",
+                    explode(
+                        "\\",
                         substr(
                             $class->getName(),
-                            strlen($this->baseName)
+                            strlen($this->baseName),
+                            -10
                         )
                     )
                 )
             )
             . ":"
-            . strtolower($method->getName())
+            . $method->getName()
         ;
     }
 }
