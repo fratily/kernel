@@ -67,11 +67,6 @@ class Kernel{
      */
     private $requestHandler;
 
-    /**
-     * @var Controller\DummyActionMiddleware
-     */
-    private $dummyAction;
-
     public function __construct(
         string $environment,
         bool $debug,
@@ -93,9 +88,6 @@ class Kernel{
         ;
         $this->routeCollector   = $routeCollector ?? new RouteCollector();
         $this->requestHandler   = new RequestHandler($this->responseFactory);
-        $this->dummyAction      = new Controller\DummyActionMiddleware();
-
-        $this->requestHandler->append($this->dummyAction);
     }
 
     /**
@@ -107,38 +99,79 @@ class Kernel{
      * @return  ResponseInterface
      */
     public function handle(ServerRequestInterface $request){
-        $router = $this->routeCollector
+        $request    = $request
+            ->withAttribute("kernel.container", $this->container)
+            ->withAttribute("kernel.routes", $this->routeCollector)
+            ->withAttribute("kernel.responseFactory", $this->responseFactory)
+            ->withAttribute("kernel.environment", $this->environment)
+            ->withAttribute("kernel.debug", $this->debug)
+        ;
+        $router     = $this->routeCollector
             ->router($request->getUri()->getHost(), $request->getMethod())
         ;
-
         $routing    = $router->search($request->getUri()->getPath());
-        $action     = $routing->found
-            ?
-                [
-                    $this->container->getInstance(
-                        $routing->data["action"]["class"]
-                    ),
-                    $routing->data["action"]["method"],
-                ]
-            :
-                function(){
-                    throw new \Fratily\Http\Message\Status\NotFound();
-                }
-        ;
+        $pre        = [];
+        $post       = [];
+        $action     = function(){
+            throw new \Fratily\Http\Message\Status\NotFound();
+        };
 
-        $this->requestHandler->replaceObject(
-            $this->dummyAction,
+        if($routing->found){
+            $method = $routing->data["action"]["method"];
+            $object = $this->container->getInstance(
+                $routing->data["action"]["class"]
+            );
+            $pre    = $object->preProccessMiddlewares($request);
+            $pre    = $object->postProccessMiddlewares($request);
+        }
+
+        if(!empty($pre)){
+            $this->appendMiddlewares($pre, get_class($object), $method);
+        }
+
+        $this->requestHandler->append(
             new Controller\ActionMiddleware($this->container, $action, $routing)
         );
 
-        return $this->requestHandler->handle(
-            $request
-                ->withAttribute("kernel.container", $this->container)
-                ->withAttribute("kernel.routes", $this->routeCollector)
-                ->withAttribute("kernel.responseFactory", $this->responseFactory)
-                ->withAttribute("kernel.environment", $this->environment)
-                ->withAttribute("kernel.debug", $this->debug)
-        );
+        if(!empty($post)){
+            $this->appendMiddlewares($post, get_class($object), $method);
+        }
+
+        return $this->requestHandler->handle($request);
+    }
+
+    /**
+     * リクエストハンドラにミドルウェアを複数追加する
+     *
+     * @param   MiddlewareInterface[]   $middlewares
+     *  ミドルウェアインスタンスの配列
+     * @param   string  $controller
+     *  アクションコントローラクラス名
+     * @param   string  $method
+     *  アクションメソッド名
+     *
+     * @return  void
+     *
+     * @throws  Controller\Exception\InvalidMiddlewareList
+     */
+    private function appendMiddlewares(array $middlewares, string $controller, string $method){
+        foreach($middlewares as $key => $middleware){
+            if(!($middleware instanceof MiddlewareInterface)){
+                $middlewareClass    = MiddlewareInterface::class;
+                $type               = "object" === gettype($middleware)
+                    ? get_class($middleware)
+                    : gettype($middleware)
+                ;
+
+                throw new Controller\Exception\InvalidMiddlewareList(
+                    "The method {$method} of controller class MUST return array"
+                    . " of {$middlewareClass}. But {$controller}::{$method}"
+                    . " contains {$type} at index {$key}"
+                );
+            }
+
+            $this->requestHandler->append($middleware);
+        }
     }
 
     /**
@@ -181,32 +214,6 @@ class Kernel{
      */
     public function prepend(MiddlewareInterface $middleware){
         $this->requestHandler->prepend($middleware);
-
-        return $this;
-    }
-
-    /**
-     * ミドルウェアをアクションミドルウェアの直前に追加する
-     *
-     * @param   MiddlewareInterface $middleware
-     *
-     * @return  $this
-     */
-    public function addBeforeAction(MiddlewareInterface $middleware){
-        $this->requestHandler->insertBeforeObject($this->dummyAction, $middleware);
-
-        return $this;
-    }
-
-    /**
-     * ミドルウェアをアクションミドルウェアの直後に追加する
-     *
-     * @param   MiddlewareInterface $middleware
-     *
-     * @return  $this
-     */
-    public function addAfterAction(MiddlewareInterface $middleware){
-        $this->requestHandler->insertAfterObject($this->dummyAction, $middleware);
 
         return $this;
     }
