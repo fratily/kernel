@@ -123,6 +123,7 @@ class Kernel{
             );
             $pre    = $object->preProccessMiddlewares($request);
             $pre    = $object->postProccessMiddlewares($request);
+            $action = [$object, $method];
         }
 
         if(!empty($pre)){
