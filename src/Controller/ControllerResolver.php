@@ -205,7 +205,7 @@ class ControllerResolver{
      *
      * @return  string
      */
-    public function getRouteName(\ReflectionMethod $method){
+    protected function getRouteName(\ReflectionMethod $method){
         $this->isController($method->getDeclaringClass()->getName());
 
         $class  = $method->getDeclaringClass();
