@@ -47,62 +47,6 @@ class ControllerResolver implements ControllerResolverInterface{
         }
     }
 
-    protected function isController(string $class, bool $throw = true){
-        try{
-            // is exists?
-            if(!class_exists($class)){
-                throw new \InvalidArgumentException(
-                    "Class '{$class}' not found."
-                );
-            }
-
-            $ref    = new \ReflectionClass($class);
-
-            // is instantiable?
-            if(!$ref->isInstantiable()){
-                throw new \InvalidArgumentException(
-                    "Class '{$ref->getName()}' is not instantiable."
-                );
-            }
-
-            // must extends AbstractController
-            if(!is_subclass_of($class, AbstractController::class)){
-                $parent = AbstractController::class;
-                throw new Exception\ControllerException(
-                    "Controller must inherit {$parent}."
-                    . " But {$ref->getName()} dose not inherit it."
-                );
-            }
-
-            // end Controller
-            if("Controller" !== substr($ref->getShortName(), -10)){
-                throw new Exception\ControllerException(
-                    "The name of the controller class must end with 'Controller'."
-                    . " But {$ref->getName()} does not end with 'Controller'."
-                );
-            }
-
-            if(
-                $this->baseName !== ""
-                && 0 !== strpos($ref->getName(), $this->baseName)
-            ){
-                throw new Exception\ControllerException(
-                    "Controller class namespace must begin with '{$this->baseName}'"
-                    . " But the namespace of {$ref->getName()}"
-                    . "dose not begin with '{$this->baseName}'"
-                );
-            }
-        }catch(\Exception $e){
-            if($throw){
-                throw $e;
-            }
-
-            return false;
-        }
-
-        return true;
-    }
-
     /**
      * {@inheritdoc}
      */
@@ -159,6 +103,77 @@ class ControllerResolver implements ControllerResolverInterface{
         }
 
         return $result;
+    }
+
+    /**
+     * クラスがコントローラーとして使用可能か確認する
+     *
+     * @param   string  $class
+     *  確認対象クラス名
+     * @param   bool    $throw
+     *  もしtrueが設定された場合、コントローラとして利用できない場合に
+     *  例外をスローする。
+     *
+     * @return  bool
+     *  コントローラとして使用可能であればtrue、それ以外の場合はfalseを返す
+     *
+     * @throws  \InvalidArgumentException
+     * @throws  Exception\ControllerException
+     */
+    protected function isController(string $class, bool $throw = true){
+        try{
+            // is exists?
+            if(!class_exists($class)){
+                throw new \InvalidArgumentException(
+                    "Class '{$class}' not found."
+                );
+            }
+
+            $ref    = new \ReflectionClass($class);
+
+            // is instantiable?
+            if(!$ref->isInstantiable()){
+                throw new \InvalidArgumentException(
+                    "Class '{$ref->getName()}' is not instantiable."
+                );
+            }
+
+            // must extends AbstractController
+            if(!is_subclass_of($class, AbstractController::class)){
+                $parent = AbstractController::class;
+                throw new Exception\ControllerException(
+                    "Controller must inherit {$parent}."
+                    . " But {$ref->getName()} dose not inherit it."
+                );
+            }
+
+            // end Controller
+            if("Controller" !== substr($ref->getShortName(), -10)){
+                throw new Exception\ControllerException(
+                    "The name of the controller class must end with 'Controller'."
+                    . " But {$ref->getName()} does not end with 'Controller'."
+                );
+            }
+
+            if(
+                $this->baseName !== ""
+                && 0 !== strpos($ref->getName(), $this->baseName)
+            ){
+                throw new Exception\ControllerException(
+                    "Controller class namespace must begin with '{$this->baseName}'"
+                    . " But the namespace of {$ref->getName()}"
+                    . "dose not begin with '{$this->baseName}'"
+                );
+            }
+        }catch(\Exception $e){
+            if($throw){
+                throw $e;
+            }
+
+            return false;
+        }
+
+        return true;
     }
 
     /**
