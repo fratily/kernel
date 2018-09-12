@@ -19,7 +19,7 @@ use Doctrine\Common\Annotations\AnnotationReader;
 /**
  *
  */
-class ControllerResolver{
+class ControllerResolver implements ControllerResolverInterface{
 
     /**
      * @var AnnotationReader
@@ -104,15 +104,7 @@ class ControllerResolver{
     }
 
     /**
-     * コントローラ内の全てのアクションのルート定義を取得する
-     *
-     * @param   string  $controller
-     *  コントローラクラス
-     *
-     * @return  \Fratily\Router\Route
-     *
-     * @throws  \InvalidArgumentException
-     * @throws  Exception\AnnotationException
+     * {@inheritdoc}
      */
     public function getRoutes(string $controller){
         $this->isController($controller, true);
@@ -127,12 +119,20 @@ class ControllerResolver{
                 || $method->isAbstract()
                 || 0 === strpos($method->getName(), "__")
             ){
-                throw new Exception\AnnotationException(
+                throw new Exception\ActionException(
                     "Method '{$class->getName()}::{$method->getName()}()' can not be used as action."
                 );
             }
 
-            $route = $this->reader->getMethodAnnotation($method, Route::class);
+            try{
+                $route = $this->reader->getMethodAnnotation($method, Route::class);
+            }catch(\Exception $e){
+                throw new Exception\AnnotationException(
+                    "Annotation error occurred in {$controller}::{$method}(). ({$e->getMessage()})",
+                    $e->getCode(),
+                    $e
+                );
+            }
 
             if(null !== $route){
                 if(null !== $parent){
