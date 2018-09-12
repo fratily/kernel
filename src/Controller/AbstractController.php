@@ -22,26 +22,13 @@ use Psr\Http\Server\MiddlewareInterface;
 abstract class AbstractController{
 
     /**
-     * アクションを実行する前に実行するミドルウェアのリストを返す
+     * このコントローラー特有のミドルウェアの配列を返す
      *
      * @param   RequestInterface    $request
      *  リクエストインスタンス
      *
-     * @return  MiddlewareInterface[]
+     * @return  MiddlewareInterface[]|string[]
      */
-    public function preProccessMiddlewares(RequestInterface $request): array{
-        return [];
-    }
-
-    /**
-     * アクションを実行した後に実行するミドルウェアのリストを返す
-     *
-     * @param   RequestInterface    $request
-     *  リクエストインスタンス
-     *
-     * @return  MiddlewareInterface[]
-     */
-    public function postProccessMiddlewares(RequestInterface $request): array{
-        return [];
+    public function registerMiddlewares(RequestInterface $request): array{
     }
 }
