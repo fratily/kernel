@@ -14,18 +14,18 @@
 namespace Fratily\Kernel;
 
 use Fratily\Container\Container;
+use Fratily\Container\ContainerFactory;
 use Fratily\Router\RouteCollector;
 use Fratily\Http\Server\RequestHandler;
 use Psr\Http\Message\ServerRequestInterface;
 use Psr\Http\Message\ResponseInterface;
-use Psr\Http\Message\ResponseFactoryInterface;
 use Psr\Http\Server\MiddlewareInterface;
 
 
 /**
  *
  */
-class Kernel{
+class Kernel implements KernelInterface{
 
     /**
      * @var string
@@ -38,71 +38,152 @@ class Kernel{
     private $debug;
 
     /**
-     * @var Container
+     * @var string[]
+     */
+    private $bundles;
+
+    /**
+     * @var MiddlewaresInterface[]|string[]
+     */
+    private $middlewares;
+
+    /**
+     * @var bool
+     */
+    private $booted = false;
+
+    /**
+     * @var Bundle\BundleInterface[]
+     */
+    private $bundleInstances;
+
+    /**
+     * @var Container|null
      */
     private $container;
 
     /**
-     * @var null
-     */
-    private $eventDispatcher;
-
-    /**
-     * @var Controller\ControllerResolver
-     */
-    private $controllerResolver;
-
-    /**
-     * @var ResponseFactoryInterface
-     */
-    private $responseFactory;
-
-    /**
-     * @var RouteCollector
+     * @var RouteCollector|null
      */
     private $routeCollector;
 
     /**
-     * @var RequestHandler
+     * @var RequestHandler|null
      */
     private $requestHandler;
 
+    /**
+     * {@inheritdoc}
+     */
     public function __construct(
         string $environment,
         bool $debug,
-        Container $container,
-        Controller\ControllerResolver $ctrlResolver = null,
-        ResponseFactoryInterface $responseFactory = null,
-        RouteCollector $routeCollector = null
+        array $bundles = [],
+        array $middlewares = []
     ){
-        $this->environment          = $environment;
-        $this->debug                = $debug;
-        $this->container            = $container;
-        $this->controllerResolver   = $ctrlResolver
-            ?? new Controller\ControllerResolver(
-                new \Doctrine\Common\Annotations\AnnotationReader()
-            )
-        ;
-        $this->responseFactory  = $responseFactory
-            ?? new \Fratily\Http\Message\ResponseFactory()
-        ;
-        $this->routeCollector   = $routeCollector ?? new RouteCollector();
-        $this->requestHandler   = new RequestHandler($this->responseFactory);
+        foreach($bundles as $bundle){
+            if(!is_class($bundle)){
+                throw new \InvalidArgumentException(
+                    "Class {$bundle} not found."
+                );
+            }
+
+            if(!is_subclass_of($bundle, Bundle\BundleInterface::class)){
+                $interface  = Bundle\BundleInterface::class;
+
+                throw new \InvalidArgumentException(
+                    "Class {$bundle} dose not implemented {$interface},"
+                    . " it can not be recognized as a bundle."
+                );
+            }
+        }
+
+        foreach($middlewares as $middleware){
+            if(
+                is_object($middleware)
+                && !is_subclass_of($middleware, MiddlewareInterface::class)
+            ){
+                throw new \InvalidArgumentException(
+                    ""
+                );
+            }elseif(!is_string($middleware)){
+                throw new \InvalidArgumentException();
+            }
+        }
+
+        $this->environment  = $environment;
+        $this->debug        = $debug;
+        $this->bundles      = $bundles;
+        $this->middlewares  = $middlewares;
     }
 
     /**
-     * リクエストハンドラを用いてリクエストをレスポンスに変換する
-     *
-     * @param   ServerRequestInterface  $request
-     *  リクエストインスタンス
-     *
-     * @return  ResponseInterface
+     * {@inheritdoc}
      */
-    public function handle(ServerRequestInterface $request){
+    public function boot(){
+        if($this->booted){
+            return;
+        }
+
+        $this->initialBundleInstances();
+
+        foreach($this->bundleInstances as $bundle){
+            $bundle->boot();
+        }
+
+        $this->container        = $this->generateContainer();
+        $this->routeCollector   = $this->generateRouteCollector();
+        $this->requestHandler   = new RequestHandler(
+            $this->container->has("kernel.responseFactory")
+                ? $this->container->get("kernel.responseFactory")
+                : new \Fratily\Http\Message\ResponseFactory()
+        );
+
+        foreach($this->middlewares as $middleware){
+            if(is_object($middleware)){
+                $this->requestHandler->append($middleware);
+                continue;
+            }
+
+            if(!$this->container->has($middleware)){
+                throw new Exception\KernelBootException();
+            }
+
+            $this->requestHandler->append($this->container->get($middleware));
+        }
+
+        $this->booted   = true;
+    }
+
+    /**
+     * {@inheritdoc}
+     */
+    public function shutdown(){
+        if(!$this->booted){
+            return;
+        }
+
+        foreach($this->bundleInstances as $bundle){
+            $bundle->shutdown();
+        }
+
+        $this->container        = null;
+        $this->routeCollector   = null;
+        $this->requestHandler   = null;
+        $this->booted           = false;
+    }
+
+    /**
+     * {@inheritdoc}
+     */
+    public function handle(ServerRequestInterface $request): ResponseInterface{
+        if($this->booted){
+            $this->shutdown();
+        }
+
+        $this->boot();
+
         $request    = $request
-            ->withAttribute("kernel.container", $this->container)
-            ->withAttribute("kernel.routes", $this->routeCollector)
-            ->withAttribute("kernel.responseFactory", $this->responseFactory)
             ->withAttribute("kernel.environment", $this->environment)
             ->withAttribute("kernel.debug", $this->debug)
         ;
@@ -110,8 +191,6 @@ class Kernel{
             ->router($request->getUri()->getHost(), $request->getMethod())
         ;
         $routing    = $router->search($request->getUri()->getPath());
-        $pre        = [];
-        $post       = [];
         $action     = function(){
             throw new \Fratily\Http\Message\Status\NotFound();
         };
@@ -121,101 +200,118 @@ class Kernel{
             $object = $this->container->getInstance(
                 $routing->data["action"]["class"]
             );
-            $pre    = $object->preProccessMiddlewares($request);
-            $pre    = $object->postProccessMiddlewares($request);
             $action = [$object, $method];
-        }
 
-        if(!empty($pre)){
-            $this->appendMiddlewares($pre, get_class($object), $method);
+            foreach($object->registerMiddlewares($request) as $middleware){
+                $this->requestHandler->append($middleware);
+            }
         }
 
         $this->requestHandler->append(
             new Controller\ActionMiddleware($this->container, $action, $routing)
         );
 
-        if(!empty($post)){
-            $this->appendMiddlewares($post, get_class($object), $method);
+        try{
+            return $this->requestHandler->handle($request);
+        }finally{
+            $this->shutdown();
         }
-
-        return $this->requestHandler->handle($request);
     }
 
-    /**
-     * リクエストハンドラにミドルウェアを複数追加する
-     *
-     * @param   MiddlewareInterface[]   $middlewares
-     *  ミドルウェアインスタンスの配列
-     * @param   string  $controller
-     *  アクションコントローラクラス名
-     * @param   string  $method
-     *  アクションメソッド名
-     *
-     * @return  void
-     *
-     * @throws  Controller\Exception\InvalidMiddlewareList
-     */
-    private function appendMiddlewares(array $middlewares, string $controller, string $method){
-        foreach($middlewares as $key => $middleware){
-            if(!($middleware instanceof MiddlewareInterface)){
-                $middlewareClass    = MiddlewareInterface::class;
-                $type               = "object" === gettype($middleware)
-                    ? get_class($middleware)
-                    : gettype($middleware)
-                ;
+    protected function initialBundleInstances(){
+        $this->bundleInstances  = [];
 
-                throw new Controller\Exception\InvalidMiddlewareList(
-                    "The method {$method} of controller class MUST return array"
-                    . " of {$middlewareClass}. But {$controller}::{$method}"
-                    . " contains {$type} at index {$key}"
+        foreach($this->bundles as $class){
+            $bundle = new $class($this->environment, $this->debug);
+            $name   = $bundle->getName();
+
+            if(array_key_exists($name, $this->bundleInstances)){
+                $_class = get_class($this->bundleInstances[$name]);
+
+                throw new Exception\KernelBootException(
+                    "Bundle name'{$name}' conflicts with {$_class} and {$class}."
                 );
             }
 
-            $this->requestHandler->append($middleware);
+            $this->bundleInstances[$name]   = $bundle;
         }
     }
 
     /**
-     * コントローラークラスを登録する
+     * サービスコンテナを生成する
      *
-     * @param   string  $controller
-     *  コントローラークラス
+     * @return  Container
      *
-     * @return  $this
+     * @throws  Exception\KernelBootException
      */
-    public function addController(string $controller){
-        $routes = $this->controllerResolver->getRoutes($controller);
+    private function generateContainer(){
+        $factory    = new ContainerFactory();
 
-        foreach($routes as $route){
-            $this->routeCollector->add($route);
+        $factory->append(new Container\KernelConfig());
+
+        try{
+            foreach($this->bundleInstances as $bundle){
+                foreach($bundle->registerContainerConfigurations() as $config){
+                    $factory->append($config);
+                }
+            }
+        }catch(\Exception $e){
+            $class = get_class($bundle);
+
+            throw new Exception\KernelBootException(
+                "An error occurred in the service container definition of {$class}.",
+                $e->getCode(),
+                $e
+            );
         }
 
-        return $this;
+        try{
+            return $factory->create();
+        }catch(\Exception $e){
+            throw new Exception\KernelBootException(
+                "An error occurred while constructing the service container.",
+                $e->getCode(),
+                $e
+            );
+        }
     }
 
     /**
-     * ミドルウェアを末尾に追加する
+     * ルートコレクタを生成する
      *
-     * @param   MiddlewareInterface $middleware
+     * @return  RouteCollector
      *
-     * @return  $this
+     * @throws  Exception\KernelBootException
      */
-    public function append(MiddlewareInterface $middleware){
-        $this->requestHandler->append($middleware);
+    private function generateRouteCollector(){
+        $routeCollector = $this->container->get("kernel.routeCollector");
+        $resolver       = $this->container->get("kernel.controllerResolver");
 
-        return $this;
-    }
+        try{
+            foreach($this->bundleInstances as $name => $bundle){
+                foreach($bundle->registerControllers() as $controller){
+                    foreach($resolver->getRoutes($controller) as $route){
+                        $data   = [
+                            "bundle"        => $name,
+                            "middleware"    => $bundle->registerMiddlewares(),
+                        ];
 
-    /**
-     * ミドルウェアを先頭に追加する
-     *
-     * @param   MiddlewareInterface $middleware
-     *
-     * @return  $this
-     */
-    public function prepend(MiddlewareInterface $middleware){
-        $this->requestHandler->prepend($middleware);
+                        $routeCollector->add(
+                            $route->withData(array_merge($route->getData, $data))
+                        );
+                    }
+                }
+            }
+        }catch(\Exception $e){
+            $class  = get_class($bundle);
 
-        return $this;
+            throw new Exception\KernelBootException(
+                "An error occurred in the route definition of {$class}.",
+                $e->getCode(),
+                $e
+            );
+        }
+
+        return $routeCollector;
     }
 }

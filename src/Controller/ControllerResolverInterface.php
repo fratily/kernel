@@ -13,7 +13,7 @@
  */
 namespace Fratily\Kernel\Controller;
 
-use Fratily\Router\Annotation\Route;
+use Fratily\Router\Route;
 
 /**
  *
