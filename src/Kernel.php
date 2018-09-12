@@ -297,7 +297,7 @@ class Kernel implements KernelInterface{
                         ];
 
                         $routeCollector->add(
-                            $route->withData(array_merge($route->getData, $data))
+                            $route->withData(array_merge($route->getData(), $data))
                         );
                     }
                 }
