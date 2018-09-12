@@ -30,5 +30,6 @@ abstract class AbstractController{
      * @return  MiddlewareInterface[]|string[]
      */
     public function registerMiddlewares(RequestInterface $request): array{
+        return [];
     }
 }
