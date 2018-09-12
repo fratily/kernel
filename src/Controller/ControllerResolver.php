@@ -50,7 +50,7 @@ class ControllerResolver implements ControllerResolverInterface{
     /**
      * {@inheritdoc}
      */
-    public function getRoutes(string $controller){
+    public function getRoutes(string $controller): array{
         $this->isController($controller, true);
 
         $class  = new \ReflectionClass($controller);
