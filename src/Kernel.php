@@ -82,7 +82,7 @@ class Kernel implements KernelInterface{
         array $middlewares = []
     ){
         foreach($bundles as $bundle){
-            if(!is_class($bundle)){
+            if(!class_exists($bundle)){
                 throw new \InvalidArgumentException(
                     "Class {$bundle} not found."
                 );
