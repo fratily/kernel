@@ -290,7 +290,7 @@ class Kernel implements KernelInterface{
         try{
             foreach($this->bundleInstances as $name => $bundle){
                 foreach($bundle->registerControllers() as $controller){
-                    foreach($resolver->getRoutes($bundle, $controller) as $route){
+                    foreach($resolver->getRoutes($controller, $bundle) as $route){
                         $data   = [
                             "bundle"        => $name,
                             "middleware"    => $bundle->registerMiddlewares(),
