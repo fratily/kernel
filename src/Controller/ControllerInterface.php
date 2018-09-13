@@ -14,16 +14,20 @@
 namespace Fratily\Kernel\Controller;
 
 use Psr\Http\Message\RequestInterface;
+use Psr\Http\Server\MiddlewareInterface;
 
 /**
  *
  */
-abstract class AbstractController implements ControllerInterface{
+interface ControllerInterface{
 
     /**
-     * {@inheritdoc}
+     * このコントローラー特有のミドルウェアの配列を返す
+     *
+     * @param   RequestInterface    $request
+     *  リクエストインスタンス
+     *
+     * @return  MiddlewareInterface[]|string[]
      */
-    public function registerMiddlewares(RequestInterface $request): array{
-        return [];
-    }
+    public function registerMiddlewares(RequestInterface $request): array;
 }

@@ -135,8 +135,8 @@ class ControllerResolver implements ControllerResolverInterface{
                 );
             }
 
-            // must extends AbstractController
-            if(!is_subclass_of($class, AbstractController::class)){
+            // must implements ControllerInterface
+            if(!is_subclass_of($class, ControllerInterface::class)){
                 $parent = AbstractController::class;
                 throw new Exception\ControllerException(
                     "Controller must inherit {$parent}."
