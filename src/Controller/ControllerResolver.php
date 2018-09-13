@@ -13,6 +13,7 @@
  */
 namespace Fratily\Kernel\Controller;
 
+use Fratily\Kernel\Bundle\BundleInterface;
 use Fratily\Router\Annotation\Route;
 use Doctrine\Common\Annotations\AnnotationReader;
 
@@ -27,19 +28,13 @@ class ControllerResolver implements ControllerResolverInterface{
     private $reader;
 
     /**
-     * @var string
-     */
-    private $baseName;
-
-    /**
      * Constructor
      *
      * @param   AnnotationReader    $reader
      * @param   string  $baseName
      */
-    public function __construct(AnnotationReader $reader, string $baseName = ""){
+    public function __construct(AnnotationReader $reader){
         $this->reader   = $reader;
-        $this->baseName = $baseName;
 
         if(!class_exists(Route::class, true)){
             // AnnotationReaderがオートロードを行わないので、先にロードしておく必要がある
@@ -50,8 +45,8 @@ class ControllerResolver implements ControllerResolverInterface{
     /**
      * {@inheritdoc}
      */
-    public function getRoutes(string $controller): array{
-        $this->isController($controller, true);
+    public function getRoutes(string $controller, BundleInterface $bundle): array{
+        $this->isController($bundle, $controller, true);
 
         $class  = new \ReflectionClass($controller);
         $result = [];
@@ -87,7 +82,7 @@ class ControllerResolver implements ControllerResolverInterface{
 
                 if(null === $route->getName()){
                     $route  = $route->withName(
-                        $this->getRouteName($method)
+                        $this->getRouteName($bundle, $method)
                     );
                 }
 
@@ -108,6 +103,8 @@ class ControllerResolver implements ControllerResolverInterface{
     /**
      * クラスがコントローラーとして使用可能か確認する
      *
+     * @param   BundleInterface $bundle
+     *  バンドルインスタンス
      * @param   string  $class
      *  確認対象クラス名
      * @param   bool    $throw
@@ -120,7 +117,7 @@ class ControllerResolver implements ControllerResolverInterface{
      * @throws  \InvalidArgumentException
      * @throws  Exception\ControllerException
      */
-    protected function isController(string $class, bool $throw = true){
+    protected function isController(BundleInterface $bundle, string $class, bool $throw = true){
         try{
             // is exists?
             if(!class_exists($class)){
@@ -147,22 +144,21 @@ class ControllerResolver implements ControllerResolverInterface{
                 );
             }
 
+            $base   = $bundle->getNamespace() . "\\Controller\\";
+
+            if(0 !== strpos($ref->getName(), $base)){
+                throw new Exception\ControllerException(
+                    "Controller class namespace must begin with '{$base}'"
+                    . " But the namespace of {$ref->getName()}"
+                    . "dose not begin with '{$base}'"
+                );
+            }
+
             // end Controller
             if("Controller" !== substr($ref->getShortName(), -10)){
                 throw new Exception\ControllerException(
                     "The name of the controller class must end with 'Controller'."
                     . " But {$ref->getName()} does not end with 'Controller'."
-                );
-            }
-
-            if(
-                $this->baseName !== ""
-                && 0 !== strpos($ref->getName(), $this->baseName)
-            ){
-                throw new Exception\ControllerException(
-                    "Controller class namespace must begin with '{$this->baseName}'"
-                    . " But the namespace of {$ref->getName()}"
-                    . "dose not begin with '{$this->baseName}'"
                 );
             }
         }catch(\Exception $e){
@@ -215,31 +211,26 @@ class ControllerResolver implements ControllerResolverInterface{
     /**
      * アクションメソッドのルート名を取得する
      *
+     * @param   BundleInterface $bundle
+     *  バンドルインスタンス
      * @param   \ReflectionMethod   $method
      *  アクションメソッドのリフレクションインスタンス
      *
      * @return  string
      */
-    protected function getRouteName(\ReflectionMethod $method){
-        $this->isController($method->getDeclaringClass()->getName());
+    protected function getRouteName(BundleInterface $bundle, \ReflectionMethod $method){
+        $this->isController($bundle, $method->getDeclaringClass()->getName(), true);
 
-        $class  = $method->getDeclaringClass();
-
-        return
-            implode(
-                "_",
-                array_map(
-                    "lcfirst",
-                    explode(
-                        "\\",
-                        substr(
-                            $class->getName(),
-                            strlen($this->baseName),
-                            -10
-                        )
-                    )
-                )
+        $name   = $bundle->getName()
+            . "\\"
+            . substr(
+                $method->getDeclaringClass()->getName(),
+                strlen($bundle->getNamespace() . "\\Controller\\"),
+                -10 // Controller
             )
+        ;
+
+        return implode("_", array_map("lcfirst", explode("\\", $name)))
             . ":"
             . $method->getName()
         ;

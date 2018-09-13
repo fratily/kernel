@@ -13,6 +13,7 @@
  */
 namespace Fratily\Kernel\Controller;
 
+use Fratily\Kernel\Bundle\BundleInterface;
 use Fratily\Router\Route;
 
 /**
@@ -25,6 +26,8 @@ interface ControllerResolverInterface{
      *
      * @param   string  $controller
      *  コントローラクラス
+     * @param   BundleInterface $bundle
+     *  バンドルインスタンス
      *
      * @return  Route[]
      *
@@ -33,5 +36,5 @@ interface ControllerResolverInterface{
      * @throws  Exception\ActionException
      * @throws  Exception\AnnotationException
      */
-    public function getRoutes(string $controller): array;
+    public function getRoutes(string $controller, BundleInterface $bundle): array;
 }
