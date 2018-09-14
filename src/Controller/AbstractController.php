@@ -13,7 +13,13 @@
  */
 namespace Fratily\Kernel\Controller;
 
+use Fratily\Router\RouteCollector;
+use Fratily\Http\Message\Uri;
+use Fratily\Http\Message\Response\RedirectResponse;
 use Psr\Http\Message\RequestInterface;
+use Psr\Http\Message\UriInterface;
+use Psr\Http\Message\ResponseInterface;
+use Psr\Http\Message\ResponseFactoryInterface;
 
 /**
  *
@@ -21,9 +27,134 @@ use Psr\Http\Message\RequestInterface;
 abstract class AbstractController implements ControllerInterface{
 
     /**
+     * @var RouteCollector|null
+     */
+    private $routeCollector = null;
+
+    /**
+     * @var ResponseFactoryInterface
+     */
+    private $responseFactory;
+
+    /**
+     * Constructor
+     *
+     * @param   ResponseFactoryInterface    $factory
+     *  レスポンスファクトリーインスタンス
+     */
+    public function __construct(
+        ResponseFactoryInterface $factory,
+        RouteCollector $routeCollector
+    ){
+        $this->responseFactory  = $factory;
+        $this->routeCollector   = $routeCollector;
+    }
+
+    /**
      * {@inheritdoc}
      */
     public function registerMiddlewares(RequestInterface $request): array{
         return [];
+    }
+
+    /**
+     * ルート名からURLを生成する
+     *
+     * @param   ServerRequestInterface  $request
+     *  リクエストインスタンス
+     * @param   string  $route
+     *  ルート名
+     * @param   mixed[] $parameters
+     *  パラメータの配列
+     *
+     * @return  UriInterface
+     *
+     * @throws \LogicException
+     */
+    protected function generateUrl(
+        ServerRequestInterface $request,
+        string $route,
+        array $parameters = []
+    ): UriInterface{
+        if(!$this->routeCollector instanceof RouteCollector){
+            throw new \LogicException;
+        }
+
+        return new Uri(
+            $request->getUri()->getScheme(),
+            $request->getUri()->getUserInfo(),
+            $request->getUri()->getHost(),
+            $request->getUri()->getPort(),
+            $this->routeCollector->reverseRouter($route)->createPath($parameters),
+            null,
+            null
+        );
+    }
+
+    /**
+     * レスポンスインスタンスを生成する
+     *
+     * @param   int $code
+     *  ステータスコード
+     * @param   string  $reasonPhrase
+     *  ステータスフレーズ
+     *
+     * @return  ResponseInterface
+     */
+    protected function generateResponse(
+        int $code,
+        string $reasonPhrase
+    ): ResponseInterface{
+        return $this->responseFactory->createResponse($code, $reasonPhrase);
+    }
+
+    /**
+     * リダイレクトレスポンスを生成する
+     *
+     * @param   UriInterface    $uri
+     *  リダイレクト先URI
+     * @param   int $status
+     *  レスポンスステータス
+     * @param   bool    $absolute
+     *  リダイレクト先URIを絶対パスで指定するか
+     *
+     * @return  RedirectResponse
+     */
+    protected function redirect(
+        UriInterface $uri,
+        int $status = 302,
+        bool $absolute = true
+    ): ResponseInterface{
+        return new RedirectResponse($uri, $status, [], $absolute);
+    }
+
+    /**
+     * ルート名からリダイレクトレスポンスを生成する
+     *
+     * @param   ServerRequestInterface  $request
+     *  リクエストインスタンス
+     * @param   string  $route
+     *  ルート名
+     * @param   mixed[] $parameters
+     *  パラメータの配列
+     * @param   int $status
+     *  レスポンスステータス
+     * @param   bool    $absolute
+     *  リダイレクト先URIを絶対パスで指定するか
+     *
+     * @return  RedirectResponse
+     */
+    protected function redirectToRoute(
+        RequestInterface $request,
+        string $route,
+        array $parameters = [],
+        int $status = 302,
+        bool $absolute = true
+    ): ResponseInterface{
+        return $this->redirect(
+            $this->generateUrl($request, $route, $parameters),
+            $status,
+            $absolute
+        );
     }
 }

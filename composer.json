@@ -13,7 +13,7 @@
         "php": "^7.0",
         "fratily/container": "^0.4.2",
         "fratily/router": "^0.4.1",
-        "fratily/http-message": "^0.2.0",
+        "fratily/http-message": "^0.2.2",
         "fratily/http-server-middleware": "^0.3.0"
     },
     "autoload": {

@@ -27,6 +27,12 @@ class KernelConfig extends ContainerConfig{
                 \Fratily\Router\RouteCollector::class,
                 $container->lazyGet("kernel.routeCollector")
             )
+            ->type(
+                \Psr\Http\Message\ResponseFactoryInterface::class,
+                $container->lazyNew(
+                    \Fratily\Http\Message\ResponseFactory::class
+                )
+            )
         ;
 
         $container
