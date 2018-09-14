@@ -53,16 +53,6 @@ class ControllerResolver implements ControllerResolverInterface{
         $parent = $this->getParentRouteAnnotation($class);
 
         foreach($class->getMethods(\ReflectionMethod::IS_PUBLIC) as $method){
-            if(
-                $method->isStatic()
-                || $method->isAbstract()
-                || 0 === strpos($method->getName(), "__")
-            ){
-                throw new Exception\ActionException(
-                    "Method '{$class->getName()}::{$method->getName()}()' can not be used as action."
-                );
-            }
-
             try{
                 $route = $this->reader->getMethodAnnotation($method, Route::class);
             }catch(\Exception $e){
@@ -74,6 +64,16 @@ class ControllerResolver implements ControllerResolverInterface{
             }
 
             if(null !== $route){
+                if(
+                    $method->isStatic()
+                    || $method->isAbstract()
+                    || 0 === strpos($method->getName(), "__")
+                ){
+                    throw new Exception\ActionException(
+                        "Method '{$class->getName()}::{$method->getName()}()' can not be used as action."
+                    );
+                }
+
                 if(null !== $parent){
                     $route->setParent($parent);
                 }
