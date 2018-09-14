@@ -53,7 +53,7 @@ abstract class AbstractController implements ControllerInterface{
     /**
      * {@inheritdoc}
      */
-    public function registerMiddlewares(RequestInterface $request): array{
+    public function registerMiddlewares(ServerRequestInterface $request): array{
         return [];
     }
 
@@ -145,7 +145,7 @@ abstract class AbstractController implements ControllerInterface{
      * @return  RedirectResponse
      */
     protected function redirectToRoute(
-        RequestInterface $request,
+        ServerRequestInterface $request,
         string $route,
         array $parameters = [],
         int $status = 302,

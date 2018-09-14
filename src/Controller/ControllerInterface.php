@@ -13,7 +13,7 @@
  */
 namespace Fratily\Kernel\Controller;
 
-use Psr\Http\Message\RequestInterface;
+use Psr\Http\Message\ServerRequestInterface;
 use Psr\Http\Server\MiddlewareInterface;
 
 /**
@@ -24,10 +24,10 @@ interface ControllerInterface{
     /**
      * このコントローラー特有のミドルウェアの配列を返す
      *
-     * @param   RequestInterface    $request
+     * @param   ServerRequestInterface  $request
      *  リクエストインスタンス
      *
      * @return  MiddlewareInterface[]|string[]
      */
-    public function registerMiddlewares(RequestInterface $request): array;
+    public function registerMiddlewares(ServerRequestInterface $request): array;
 }
