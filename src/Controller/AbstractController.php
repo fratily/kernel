@@ -16,7 +16,7 @@ namespace Fratily\Kernel\Controller;
 use Fratily\Router\RouteCollector;
 use Fratily\Http\Message\Uri;
 use Fratily\Http\Message\Response\RedirectResponse;
-use Psr\Http\Message\RequestInterface;
+use Psr\Http\Message\ServerRequestInterface;
 use Psr\Http\Message\UriInterface;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ResponseFactoryInterface;
