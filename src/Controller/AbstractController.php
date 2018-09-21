@@ -80,7 +80,7 @@ abstract class AbstractController implements ControllerInterface{
             throw new \LogicException;
         }
 
-        return new Uri(
+        return Uri::newInstance(
             $request->getUri()->getScheme(),
             $request->getUri()->getUserInfo(),
             $request->getUri()->getHost(),
@@ -125,7 +125,7 @@ abstract class AbstractController implements ControllerInterface{
         int $status = 302,
         bool $absolute = true
     ): ResponseInterface{
-        return new RedirectResponse($uri, $status, [], $absolute);
+        throw new \LogicException("未実装");
     }
 
     /**
@@ -151,6 +151,7 @@ abstract class AbstractController implements ControllerInterface{
         int $status = 302,
         bool $absolute = true
     ): ResponseInterface{
+        throw new \LogicException("未実装");
         return $this->redirect(
             $this->generateUrl($request, $route, $parameters),
             $status,
