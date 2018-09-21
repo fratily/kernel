@@ -86,8 +86,8 @@ abstract class AbstractController implements ControllerInterface{
             $request->getUri()->getHost(),
             $request->getUri()->getPort(),
             $this->routeCollector->reverseRouter($route)->createPath($parameters),
-            null,
-            null
+            "",
+            ""
         );
     }
 
