@@ -13,8 +13,6 @@
  */
 namespace Fratily\Kernel\Bundle;
 
-use Fratily\Container\Container;
-
 /**
  *
  */
