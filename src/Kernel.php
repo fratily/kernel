@@ -266,7 +266,10 @@ class Kernel implements KernelInterface{
         }
 
         try{
-            return $factory->create();
+            return $factory->create([
+                "environment"   => $this->environment,
+                "debug"         => $this->debug,
+            ]);
         }catch(\Exception $e){
             throw new Exception\KernelBootException(
                 "An error occurred while constructing the service container.",
