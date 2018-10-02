@@ -108,7 +108,7 @@ abstract class Bundle implements BundleInterface{
     /**
      * {@inheritdoc}
      */
-    public function registerContainerConfigurations(): array{
+    public function registerContainers(): array{
         return [];
     }
 

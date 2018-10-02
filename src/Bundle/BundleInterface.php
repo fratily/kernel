@@ -65,11 +65,11 @@ interface BundleInterface{
     public function getPath(): string;
 
     /**
-     * 登録するコンテナ構成インスタンスの配列
+     * 登録するコンテナ構成クラスの配列
      *
-     * @return  ContainerConfigInterface[]
+     * @return  string[]
      */
-    public function registerContainerConfigurations(): array;
+    public function registerContainers(): array;
 
     /**
      * 登録するコントローラーの配列

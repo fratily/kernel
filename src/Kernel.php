@@ -247,12 +247,12 @@ class Kernel implements KernelInterface{
     private function generateContainer(){
         $factory    = new ContainerFactory();
 
-        $factory->append(new \Fratily\Kernel\Container\KernelConfig());
+        $factory->append(new \Fratily\Kernel\Container\KernelContainer());
 
         try{
             foreach($this->bundleInstances as $bundle){
-                foreach($bundle->registerContainerConfigurations() as $config){
-                    $factory->append($config);
+                foreach($bundle->registerContainers() as $container){
+                    $factory->append($container);
                 }
             }
         }catch(\Exception $e){
