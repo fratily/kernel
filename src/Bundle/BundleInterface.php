@@ -13,9 +13,6 @@
  */
 namespace Fratily\Kernel\Bundle;
 
-use Fratily\Container\Container;
-use Fratily\Container\ContainerConfigInterface;
-
 /**
  *
  */
