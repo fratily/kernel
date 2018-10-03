@@ -272,7 +272,7 @@ class Kernel implements KernelInterface{
     private function generateContainer(){
         $factory    = new ContainerFactory();
 
-        $factory->append(new \Fratily\Kernel\Container\KernelContainer());
+        $factory->append(\Fratily\Kernel\Container\KernelContainer::class);
 
         try{
             foreach($this->bundleInstances as $bundle){
