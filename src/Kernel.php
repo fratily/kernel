@@ -86,16 +86,7 @@ class Kernel implements KernelInterface{
         }
 
         foreach($middlewares as $middleware){
-            if(
-                is_object($middleware)
-                && !is_subclass_of($middleware, MiddlewareInterface::class)
-            ){
-                throw new \InvalidArgumentException(
-                    ""
-                );
-            }elseif(!is_string($middleware)){
-                throw new \InvalidArgumentException();
-            }
+            $this->addMiddleware($middleware);
         }
 
         $this->environment  = $environment;
@@ -125,6 +116,26 @@ class Kernel implements KernelInterface{
         }
     }
 
+    protected function addMiddleware($middleware){
+        if(
+            !is_string($middleware)
+            && !(
+                is_object($middleware)
+                && is_subclass_of($middleware, MiddlewareInterface::class)
+            )
+        ){
+            $interface  = MiddlewareInterface::class;
+
+            throw new \InvalidArgumentException(
+                "Middleware should be a service id string expected to be"
+                . " retrieved from the service container or an instance of"
+                . " class implementing {$interface}."
+            );
+        }
+
+        $this->middlewares[]    = $middleware;
+    }
+
     /**
      * {@inheritdoc}
      */
@@ -148,16 +159,22 @@ class Kernel implements KernelInterface{
         );
 
         foreach($this->middlewares as $middleware){
-            if(is_object($middleware)){
-                $this->requestHandler->append($middleware);
-                continue;
+            if(is_string($middleware)){
+                if(!$this->container->has($middleware)){
+                    throw new Exception\KernelBootException();
+                }
+
+                $middleware = $this->container->get($middleware);
             }
 
-            if(!$this->container->has($middleware)){
+            if(
+                !is_object($middleware)
+                || !$middleware instanceof MiddlewareInterface
+            ){
                 throw new Exception\KernelBootException();
             }
 
-            $this->requestHandler->append($this->container->get($middleware));
+            $this->requestHandler->append($middleware);
         }
 
         $this->booted   = true;
