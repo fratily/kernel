@@ -62,6 +62,13 @@ interface BundleInterface{
     public function getPath(): string;
 
     /**
+     * 登録するバンドルクラスの配列
+     *
+     * @return  string[]
+     */
+    public function registerBundles(): array;
+
+    /**
      * 登録するコンテナ構成クラスの配列
      *
      * @return  string[]
