@@ -19,6 +19,13 @@ namespace Fratily\Kernel\Bundle;
 interface BundleInterface{
 
     /**
+     * 依存するバンドルクラスのリスト
+     *
+     * @return  string[]
+     */
+    public static function dependBundles(): array;
+
+    /**
      * Constructor
      *
      * @param   string  $environment
@@ -60,13 +67,6 @@ interface BundleInterface{
      * @return  string
      */
     public function getPath(): string;
-
-    /**
-     * 登録するバンドルクラスの配列
-     *
-     * @return  string[]
-     */
-    public function registerBundles(): array;
 
     /**
      * 登録するコンテナ構成クラスの配列

@@ -82,20 +82,7 @@ class Kernel implements KernelInterface{
         array $middlewares = []
     ){
         foreach($bundles as $bundle){
-            if(!class_exists($bundle)){
-                throw new \InvalidArgumentException(
-                    "Class {$bundle} not found."
-                );
-            }
-
-            if(!is_subclass_of($bundle, Bundle\BundleInterface::class)){
-                $interface  = Bundle\BundleInterface::class;
-
-                throw new \InvalidArgumentException(
-                    "Class {$bundle} dose not implemented {$interface},"
-                    . " it can not be recognized as a bundle."
-                );
-            }
+            $this->addBundle($bundle);
         }
 
         foreach($middlewares as $middleware){
@@ -115,6 +102,27 @@ class Kernel implements KernelInterface{
         $this->debug        = $debug;
         $this->bundles      = $bundles;
         $this->middlewares  = $middlewares;
+    }
+
+    protected function addBundle(string $bundle){
+        if(!is_class($bundle) || !is_subclass_of($bundle, Bundle\BundleInterface::class)){
+            $interface  = Bundle\BundleInterface::class;
+
+            throw new \InvalidArgumentException(
+                "'{$bundle}' is not a bundle."
+                . " The bundle must be a class that implements '{$interface}'."
+            );
+        }
+
+        if(array_key_exists($bundle, $this->bundles)){
+            return;
+        }
+
+        $this->bundles[$bundle] = $bundle;
+
+        foreach($bundle::dependBundles() as $dependBundle){
+            $this->addBundle($dependBundle);
+        }
     }
 
     /**

@@ -46,6 +46,13 @@ abstract class Bundle implements BundleInterface{
     /**
      * {@inheritdoc}
      */
+    public static function dependBundles(): array{
+        return [];
+    }
+
+    /**
+     * {@inheritdoc}
+     */
     public function __construct(string $environment, bool $debug){
         $this->environment  = $environment;
         $this->debug        = $debug;
@@ -103,13 +110,6 @@ abstract class Bundle implements BundleInterface{
         }
 
         return $this->path;
-    }
-
-    /**
-     * {@inheritdoc}
-     */
-    public function registerBundles(): array{
-        return [];
     }
 
     /**
