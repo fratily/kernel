@@ -96,7 +96,7 @@ class Kernel implements KernelInterface{
     }
 
     protected function addBundle(string $bundle){
-        if(!is_class($bundle) || !is_subclass_of($bundle, Bundle\BundleInterface::class)){
+        if(!class_exists($bundle) || !is_subclass_of($bundle, Bundle\BundleInterface::class)){
             $interface  = Bundle\BundleInterface::class;
 
             throw new \InvalidArgumentException(
