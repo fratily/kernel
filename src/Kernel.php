@@ -40,12 +40,12 @@ class Kernel implements KernelInterface{
     /**
      * @var string[]
      */
-    private $bundles;
+    private $bundles        = [];
 
     /**
      * @var MiddlewaresInterface[]|string[]
      */
-    private $middlewares;
+    private $middlewares    = [];
 
     /**
      * @var bool
