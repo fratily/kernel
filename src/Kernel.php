@@ -81,6 +81,9 @@ class Kernel implements KernelInterface{
         array $bundles = [],
         array $middlewares = []
     ){
+        $this->environment  = $environment;
+        $this->debug        = $debug;
+
         foreach($bundles as $bundle){
             $this->addBundle($bundle);
         }
@@ -88,11 +91,6 @@ class Kernel implements KernelInterface{
         foreach($middlewares as $middleware){
             $this->addMiddleware($middleware);
         }
-
-        $this->environment  = $environment;
-        $this->debug        = $debug;
-        $this->bundles      = $bundles;
-        $this->middlewares  = $middlewares;
     }
 
     protected function addBundle(string $bundle){
