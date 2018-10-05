@@ -13,6 +13,8 @@
  */
 namespace Fratily\Kernel\Bundle;
 
+use Fratily\Utility\FileSystem;
+
 /**
  *
  */
@@ -116,14 +118,58 @@ abstract class Bundle implements BundleInterface{
      * {@inheritdoc}
      */
     public function registerContainers(): array{
-        return [];
+        $result     = [];
+        $basedir    = $this->getPath()
+            . DIRECTORY_SEPARATOR
+            . "Controller"
+            . DIRECTORY_SEPARATOR
+        ;
+
+        foreach(FileSystem::getFiles($this->getPath() . "/Controller", true) as $file){
+            if(".php" !== substr($file, -4)){
+                continue;
+            }
+
+            $class  = $this->getNameSpace()
+                . "\\Controller\\"
+                . str_replace("/", "\\", substr($file, strlen($basedir)))
+            ;
+
+            if(!class_exists($class)){
+                continue;
+            }
+
+            $result[]   = $class;
+        }
     }
 
     /**
      * {@inheritdoc}
      */
     public function registerControllers(): array{
-        return [];
+        $result     = [];
+        $basedir    = $this->getPath()
+            . DIRECTORY_SEPARATOR
+            . "Controller"
+            . DIRECTORY_SEPARATOR
+        ;
+
+        foreach(FileSystem::getFiles($this->getPath() . "/Controller", true) as $file){
+            if(".php" !== substr($file, -4)){
+                continue;
+            }
+
+            $class  = $this->getNameSpace()
+                . "\\Controller\\"
+                . str_replace("/", "\\", substr($file, strlen($basedir)))
+            ;
+
+            if(!class_exists($class)){
+                continue;
+            }
+
+            $result[]   = $class;
+        }
     }
 
     /**
