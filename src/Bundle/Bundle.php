@@ -83,6 +83,18 @@ abstract class Bundle implements BundleInterface{
     /**
      * {@inheritdoc}
      */
+    public function middlewareRegister(RequestHandlerBuilder $builder){
+    }
+
+    /**
+     * {@inheritdoc}
+     */
+    public function middlewareRegisterForGlobal(RequestHandlerBuilder $builder){
+    }
+
+    /**
+     * {@inheritdoc}
+     */
     public function boot(): void{
     }
 
