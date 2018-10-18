@@ -45,8 +45,12 @@ class ControllerResolver implements ControllerResolverInterface{
     /**
      * {@inheritdoc}
      */
-    public function getRoutes(string $controller, BundleInterface $bundle): array{
-        $this->isController($bundle, $controller, true);
+    public function getRoutes(
+        string $controller,
+        string $prefix,
+        string $baseNameSpace
+    ): array{
+        $this->isController($baseNameSpace, $controller, true);
 
         $class  = new \ReflectionClass($controller);
         $result = [];
@@ -82,7 +86,7 @@ class ControllerResolver implements ControllerResolverInterface{
 
                 if(null === $route->getName()){
                     $route  = $route->withName(
-                        $this->getRouteName($bundle, $method)
+                        $this->getRouteName($prefix, $baseNameSpace, $method)
                     );
                 }
 
@@ -103,8 +107,8 @@ class ControllerResolver implements ControllerResolverInterface{
     /**
      * クラスがコントローラーとして使用可能か確認する
      *
-     * @param   BundleInterface $bundle
-     *  バンドルインスタンス
+     * @param   string  $baseNameSpace
+     *  コントローラークラスのベースとなるネームスペース
      * @param   string  $class
      *  確認対象クラス名
      * @param   bool    $throw
@@ -117,7 +121,7 @@ class ControllerResolver implements ControllerResolverInterface{
      * @throws  \InvalidArgumentException
      * @throws  Exception\ControllerException
      */
-    protected function isController(BundleInterface $bundle, string $class, bool $throw = true){
+    protected function isController(string $baseNameSpace, string $class, bool $throw = true){
         try{
             // is exists?
             if(!class_exists($class)){
@@ -144,13 +148,11 @@ class ControllerResolver implements ControllerResolverInterface{
                 );
             }
 
-            $base   = $bundle->getNamespace() . "\\Controller\\";
-
-            if(0 !== strpos($ref->getName(), $base)){
+            if(0 !== strpos($ref->getName(), $baseNameSpace)){
                 throw new Exception\ControllerException(
-                    "Controller class namespace must begin with '{$base}'"
+                    "Controller class namespace must begin with '{$baseNameSpace}'"
                     . " But the namespace of {$ref->getName()}"
-                    . "dose not begin with '{$base}'"
+                    . "dose not begin with '{$baseNameSpace}'"
                 );
             }
 
@@ -211,26 +213,32 @@ class ControllerResolver implements ControllerResolverInterface{
     /**
      * アクションメソッドのルート名を取得する
      *
-     * @param   BundleInterface $bundle
-     *  バンドルインスタンス
+     * @param   string  $prefix
+     *  ルート名プレフィックス
+     * @param   string  $baseNameSpace
+     *  コントローラークラスのベースとなるネームスペース
      * @param   \ReflectionMethod   $method
      *  アクションメソッドのリフレクションインスタンス
      *
      * @return  string
      */
-    protected function getRouteName(BundleInterface $bundle, \ReflectionMethod $method){
-        $this->isController($bundle, $method->getDeclaringClass()->getName(), true);
+    protected function getRouteName(
+        string $prefix,
+        string $baseNameSpace,
+        \ReflectionMethod $method
+    ){
+        $this->isController(
+            $baseNameSpace,
+            $method->getDeclaringClass()->getName(),
+            true
+        );
 
-        $name   = $bundle->getName()
-            . "\\"
-            . substr(
-                $method->getDeclaringClass()->getName(),
-                strlen($bundle->getNamespace() . "\\Controller\\"),
-                -10 // Controller
-            )
-        ;
 
-        return implode("_", array_map("lcfirst", explode("\\", $name)))
+        $class  = $method->getDeclaringClass()->getName();
+        $name   = $prefix . "\\" . substr($class, strlen($baseNameSpace), -10);
+
+        return
+            implode("_", array_map("lcfirst", explode("\\", $name)))
             . ":"
             . $method->getName()
         ;

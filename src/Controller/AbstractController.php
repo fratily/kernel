@@ -51,13 +51,6 @@ abstract class AbstractController implements ControllerInterface{
     }
 
     /**
-     * {@inheritdoc}
-     */
-    public function registerMiddlewares(ServerRequestInterface $request): array{
-        return [];
-    }
-
-    /**
      * ルート名からURLを生成する
      *
      * @param   ServerRequestInterface  $request

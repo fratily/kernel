@@ -83,11 +83,10 @@ class ActionMiddleware implements MiddlewareInterface{
         );
 
         if(!($response instanceof ResponseInterface)){
+            $class  = ResponseInterface::class;
             throw new Exception\ActionException(
                 "Action method must return an instance of the object"
-                . "that implements "
-                . ResponseInterface::class
-                . "."
+                . "that implements {$class}."
             );
         }
 

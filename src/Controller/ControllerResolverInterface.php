@@ -26,15 +26,20 @@ interface ControllerResolverInterface{
      *
      * @param   string  $controller
      *  コントローラクラス
-     * @param   BundleInterface $bundle
-     *  バンドルインスタンス
+     * @param   string  $prefix
+     *  ルート名のプレフィックス
+     * @param   string  $baseNameSpace
+     *  コントローラーのベースとなるネームスペース
      *
      * @return  Route[]
      *
-     * @throws  \InvalidArgumentException
      * @throws  Exception\ControllerException
      * @throws  Exception\ActionException
      * @throws  Exception\AnnotationException
      */
-    public function getRoutes(string $controller, BundleInterface $bundle): array;
+    public function getRoutes(
+        string $controller,
+        string $prefix,
+        string $baseNameSpace
+    ): array;
 }

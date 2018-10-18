@@ -13,37 +13,25 @@
  */
 namespace Fratily\Kernel\Bundle;
 
-use Fratily\Utility\FileSystem;
+use Fratily\Kernel\KernelConfigure;
+use Fratily\Http\Server\RequestHandlerBuilder;
 
 /**
  *
  */
 abstract class Bundle implements BundleInterface{
 
-    /**
-     * @var string
-     */
-    private $environment;
+    use DirectoryStructureTrait;
 
     /**
-     * @var bool
+     * @var KernelConfigure
      */
-    private $debug;
+    private $config;
 
     /**
      * @var string
      */
     protected $name       = null;
-
-    /**
-     * @var string
-     */
-    protected $namespace  = null;
-
-    /**
-     * @var string
-     */
-    protected $path       = null;
 
     /**
      * {@inheritdoc}
@@ -55,23 +43,17 @@ abstract class Bundle implements BundleInterface{
     /**
      * {@inheritdoc}
      */
-    public function __construct(string $environment, bool $debug){
-        $this->environment  = $environment;
-        $this->debug        = $debug;
+    public function __construct(KernelConfigure $config){
+        $this->config   = $config;
     }
 
     /**
-     * {@inheritdoc}
+     * カーネル設定クラスインスタンスを取得する
+     *
+     * @return  KErnelConfigure
      */
-    public function getEnvironment(): string{
-        return $this->environment;
-    }
-
-    /**
-     * {@inheritdoc}
-     */
-    public function isDebug(): bool{
-        return $this->debug;
+    public function getConfig(){
+        return $this->config;
     }
 
     /**
@@ -79,8 +61,16 @@ abstract class Bundle implements BundleInterface{
      */
     public function getName(): string{
         if(null === $this->name){
-            $reflection = new \ReflectionClass(static::class);
-            $this->name = ltrim(strtolower(preg_replace("/[A-Z]/", '_$0', $reflection->getShortName())), "_");
+            $this->name = ltrim(
+                strtolower(
+                    preg_replace(
+                        "/[A-Z]/",
+                        '_$0',
+                        (new \ReflectionClass(static::class))->getShortName()
+                    )
+                ),
+                "_"
+            );
 
             if("_bundle" === substr($this->name, -7)){
                 $this->name = substr($this->name, 0, -7);
@@ -88,95 +78,6 @@ abstract class Bundle implements BundleInterface{
         }
 
         return $this->name;
-    }
-
-    /**
-     * {@inheritdoc}
-     */
-    public function getNameSpace(): string{
-        if(null === $this->namespace){
-            $reflection         = new \ReflectionClass(static::class);
-            $this->namespace    = $reflection->getNamespaceName();
-        }
-
-        return $this->namespace;
-    }
-
-    /**
-     * {@inheritdoc}
-     */
-    public function getPath(): string{
-        if(null === $this->path){
-            $reflection = new \ReflectionClass(static::class);
-            $this->path = dirname($reflection->getFileName());
-        }
-
-        return $this->path;
-    }
-
-    /**
-     * {@inheritdoc}
-     */
-    public function registerContainers(): array{
-        $result     = [];
-        $basedir    = $this->getPath()
-            . DIRECTORY_SEPARATOR
-            . "Controller"
-            . DIRECTORY_SEPARATOR
-        ;
-
-        foreach(FileSystem::getFiles($this->getPath() . "/Controller", true) as $file){
-            if(".php" !== substr($file, -4)){
-                continue;
-            }
-
-            $class  = $this->getNameSpace()
-                . "\\Controller\\"
-                . str_replace("/", "\\", substr($file, strlen($basedir)))
-            ;
-
-            if(!class_exists($class)){
-                continue;
-            }
-
-            $result[]   = $class;
-        }
-    }
-
-    /**
-     * {@inheritdoc}
-     */
-    public function registerControllers(): array{
-        $result     = [];
-        $basedir    = $this->getPath()
-            . DIRECTORY_SEPARATOR
-            . "Controller"
-            . DIRECTORY_SEPARATOR
-        ;
-
-        foreach(FileSystem::getFiles($this->getPath() . "/Controller", true) as $file){
-            if(".php" !== substr($file, -4)){
-                continue;
-            }
-
-            $class  = $this->getNameSpace()
-                . "\\Controller\\"
-                . str_replace("/", "\\", substr($file, strlen($basedir)))
-            ;
-
-            if(!class_exists($class)){
-                continue;
-            }
-
-            $result[]   = $class;
-        }
-    }
-
-    /**
-     * {@inheritdoc}
-     */
-    public function registerMiddlewares(): array{
-        return [];
     }
 
     /**
@@ -190,5 +91,4 @@ abstract class Bundle implements BundleInterface{
      */
     public function shutdown(): void{
     }
-
 }
