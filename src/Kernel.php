@@ -29,7 +29,7 @@ class Kernel{
     /**
      * @var string[]
      */
-    private $bundles;
+    private $bundles    = [];
 
     /**
      * Constructor
