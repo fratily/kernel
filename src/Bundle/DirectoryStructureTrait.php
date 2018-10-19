@@ -133,7 +133,7 @@ trait DirectoryStructureTrait{
      *
      * @return  string[]
      */
-    public function getContainers(): string{
+    public function getContainers(): array{
         if(null === $this->containers){
             $this->containers   = $this->getClassesInSrcDir(
                 "Container",
@@ -149,7 +149,7 @@ trait DirectoryStructureTrait{
      *
      * @return  string[]
      */
-    public function getControllers(): string{
+    public function getControllers(): array{
         if(null === $this->controllers){
             $this->controllers  = $this->getClassesInSrcDir(
                 "Controller",

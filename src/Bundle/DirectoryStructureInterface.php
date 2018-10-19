@@ -73,12 +73,12 @@ interface DirectoryStructureInterface{
      *
      * @return  string[]
      */
-    public function getContainers(): string;
+    public function getContainers(): array;
 
     /**
      * コントローラークラスの配列を取得する
      *
      * @return  string[]
      */
-    public function getControllers(): string;
+    public function getControllers(): array;
 }
