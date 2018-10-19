@@ -102,7 +102,7 @@ class BootedKernel{
      * @param   string  $bundles
      *  バンドルインスタンスの配列
      *
-     * @return  ContainerInterface
+     * @return  Container
      *
      * @throws  Exception\KernelBootException
      */
@@ -165,7 +165,7 @@ class BootedKernel{
      */
     protected static function createRouteCollector(
         KernelConfigure $config,
-        ContainerInterface $container,
+        Container $container,
         array $bundles
     ){
         $routeCollector = $container->get("kernel.routeCollector");
