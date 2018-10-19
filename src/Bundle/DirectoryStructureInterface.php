@@ -25,13 +25,6 @@ namespace Fratily\Kernel\Bundle;
 interface DirectoryStructureInterface{
 
     /**
-     * ルートディレクトリを取得する
-     *
-     * @return  string
-     */
-    public function getRootDir(): string;
-
-    /**
      * プロジェクトディレクトリを取得する
      *
      * プロジェクトディレクトリの直接の子供にcomposer.jsonが含まれる必要がある。
@@ -39,6 +32,13 @@ interface DirectoryStructureInterface{
      * @return  string
      */
     public function getProjectDir(): string;
+
+    /**
+     * ソースコードディレクトリを取得する
+     *
+     * @return  string
+     */
+    public function getSrcDir(): string;
 
     /**
      * アセットディレクトリを取得する
@@ -55,13 +55,6 @@ interface DirectoryStructureInterface{
      * @return  string
      */
     public function getConfigDir(): string;
-
-    /**
-     * ソースコードディレクトリを取得する
-     *
-     * @return  string
-     */
-    public function getSrcDir(): string;
 
     /**
      * ソースコードディレクトリに対応するネームスペースを取得する

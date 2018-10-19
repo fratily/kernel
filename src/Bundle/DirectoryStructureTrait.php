@@ -23,7 +23,7 @@ trait DirectoryStructureTrait{
     /**
      * @var string|null
      */
-    private $rootDir;
+    private $srcDir;
 
     /**
      * @var string|null
@@ -46,23 +46,6 @@ trait DirectoryStructureTrait{
     private $containers;
 
     /**
-     * ルートディレクトリを取得する
-     *
-     * @return  string
-     */
-    public function getRootDir(): string{
-        if(null === $this->rootDir){
-            $this->rootDir  = realpath(
-                dirname(
-                    (new \ReflectionClass(static::class))->getFileName()
-                )
-            );
-        }
-
-        return $this->rootDir;
-    }
-
-    /**
      * プロジェクトディレクトリを取得する
      *
      * プロジェクトディレクトリの直接の子供にcomposer.jsonが含まれる必要がある。
@@ -71,11 +54,11 @@ trait DirectoryStructureTrait{
      */
     public function getProjectDir(): string{
         if(null === $this->projectDir){
-            $this->projectDir   = $this->getRootDir();
+            $this->projectDir   = $this->getSrcDir();
 
             while(!file_exists($this->projectDir . "/composer.json")){
                 if($this->projectDir === dirname($this->projectDir)){
-                    $this->projectDir   = $this->getRootDir();
+                    $this->projectDir   = $this->getSrcDir();
                     break;
                 }
 
@@ -87,6 +70,19 @@ trait DirectoryStructureTrait{
     }
 
     /**
+     * ソースコードディレクトリを取得する
+     *
+     * @return  string
+     */
+    public function getSrcDir(): string{
+        if(null === $this->srcDir){
+            $this->srcDir   = (new \ReflectionClass(static::class))->getFileName();
+        }
+
+        return $this->srcDir;
+    }
+
+    /**
      * アセットディレクトリを取得する
      *
      * jsやcssなどアプリケーション内で共有されるリソースを格納するディレクトリ。
@@ -94,7 +90,7 @@ trait DirectoryStructureTrait{
      * @return  string
      */
     public function getAssetDir(): string{
-        return $this->getRootDir() . DIRECTORY_SEPARATOR . "asset";
+        return $this->getSrcDir() . DIRECTORY_SEPARATOR . "asset";
     }
 
     /**
@@ -103,16 +99,7 @@ trait DirectoryStructureTrait{
      * @return  string
      */
     public function getConfigDir(): string{
-        return $this->getRootDir() . DIRECTORY_SEPARATOR . "config";
-    }
-
-    /**
-     * ソースコードディレクトリを取得する
-     *
-     * @return  string
-     */
-    public function getSrcDir(): string{
-        return $this->getRootDir() . DIRECTORY_SEPARATOR . "src";
+        return $this->getSrcDir() . DIRECTORY_SEPARATOR . "config";
     }
 
     /**
