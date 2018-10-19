@@ -90,7 +90,7 @@ trait DirectoryStructureTrait{
      * @return  string
      */
     public function getAssetDir(): string{
-        return $this->getSrcDir() . DIRECTORY_SEPARATOR . "asset";
+        return $this->getProjectDir() . DIRECTORY_SEPARATOR . "asset";
     }
 
     /**
@@ -99,7 +99,7 @@ trait DirectoryStructureTrait{
      * @return  string
      */
     public function getConfigDir(): string{
-        return $this->getSrcDir() . DIRECTORY_SEPARATOR . "config";
+        return $this->getProjectDir() . DIRECTORY_SEPARATOR . "config";
     }
 
     /**
