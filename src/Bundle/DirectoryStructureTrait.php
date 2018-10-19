@@ -124,7 +124,8 @@ trait DirectoryStructureTrait{
         if(null === $this->containers){
             $this->containers   = $this->getClassesInSrcDir(
                 "Container",
-                "Container"
+                "Container",
+                true
             );
         }
 
@@ -140,7 +141,8 @@ trait DirectoryStructureTrait{
         if(null === $this->controllers){
             $this->controllers  = $this->getClassesInSrcDir(
                 "Controller",
-                "Controller"
+                "Controller",
+                true
             );
         }
 
@@ -156,12 +158,15 @@ trait DirectoryStructureTrait{
      *  ソースコード内の検索するサブディレクトリ
      * @param   string  $suffix
      *  クラス名の接尾語
+     * @param   bool    $instantiable
+     *  インスタンス化可能なクラスだけを取得するか
      *
      * @return  string[]
      */
     protected function getClassesInSrcDir(
         string $subDir = "",
-        string $suffix = ""
+        string $suffix = "",
+        bool $instantiable = true
     ){
         $result = [];
         $subDir = trim(
@@ -197,7 +202,13 @@ trait DirectoryStructureTrait{
                 )
             ;
 
-            if(!class_exists($class)){
+            if(
+                !class_exists($class)
+                || (
+                    $instantiable
+                    && !(new \ReflectionClass($class))->isInstantiable()
+                )
+            ){
                 continue;
             }
 
