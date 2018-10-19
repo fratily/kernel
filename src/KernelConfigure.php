@@ -79,4 +79,16 @@ abstract class KernelConfigure implements Bundle\DirectoryStructureInterface, Bu
      */
     public function middlewareRegisterForGlobal(RequestHandlerBuilder $builder){
     }
+
+    /**
+     * {@inheritdoc}
+     */
+    public function boot(): void{
+    }
+
+    /**
+     * {@inheritdoc}
+     */
+    public function shutdown(): void{
+    }
 }
