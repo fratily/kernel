@@ -56,7 +56,7 @@ class BootedKernel{
      *
      * @param   KernelConfigure $config
      *  カーネル設定クラスインスタンス
-     * @param   string  $bundles
+     * @param   string[]    $bundles
      *  バンドルクラス名の配列
      *
      * @return  Bundle\BundleInterface[]
@@ -99,7 +99,7 @@ class BootedKernel{
      *
      * @param   KernelConfigure $config
      *  カーネル設定クラスインスタンス
-     * @param   string  $bundles
+     * @param   Bundle\BundleInterface[]    $bundles
      *  バンドルインスタンスの配列
      *
      * @return  Container
@@ -156,7 +156,7 @@ class BootedKernel{
      *  カーネル設定クラスインスタンス
      * @param   Container   $container
      *  サービスコンテナ
-     * @param   Bundle\BundleInterface  $bundles
+     * @param   Bundle\BundleInterface[]    $bundles
      *  バンドルインスタンスの配列
      *
      * @return  RouteCollector
