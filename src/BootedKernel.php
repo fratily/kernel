@@ -112,7 +112,7 @@ class BootedKernel{
     ){
         $factory    = new ContainerFactory();
 
-        $factory->append(Container\KernelContainer::class);
+        $factory->append(\Fratily\Kernel\Container\KernelContainer::class);
 
         try{
             foreach($config->getContainers() as $container){
