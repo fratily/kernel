@@ -170,7 +170,7 @@ trait DirectoryStructureTrait{
         );
         $subNs  = str_replace(DIRECTORY_SEPARATOR, "\\", $subDir);
         $search = realpath(
-            __DIR__ . "/src"
+            $this->getSrcDir()
             . (
                 "" === $subDir
                     ? ""
