@@ -250,7 +250,7 @@ class BootedKernel{
             $config,
             $bundles
         );
-        $this->container                = static::createConainer(
+        $this->container                = static::createContainer(
             $config,
             $this->bundles
         );
