@@ -76,7 +76,9 @@ trait DirectoryStructureTrait{
      */
     public function getSrcDir(): string{
         if(null === $this->srcDir){
-            $this->srcDir   = (new \ReflectionClass(static::class))->getFileName();
+            $this->srcDir   = dirname(
+                (new \ReflectionClass(static::class))->getFileName()
+            );
         }
 
         return $this->srcDir;
