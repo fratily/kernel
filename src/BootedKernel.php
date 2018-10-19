@@ -120,7 +120,7 @@ class BootedKernel{
             }
 
             foreach($bundles as $bundle){
-                foreach($bundle->registerContainers() as $container){
+                foreach($bundle->getContainers() as $container){
                     $factory->append($container);
                 }
             }
@@ -183,7 +183,7 @@ class BootedKernel{
             }
 
             foreach($bundles as $name => $bundle){
-                foreach($bundle->registerControllers() as $controller){
+                foreach($bundle->getControllers() as $controller){
                     foreach($resolver->getRoutes($controller, $bundle->getName(), $bundle->getNameSpace()) as $route){
                         $routeCollector->add(
                             $route->withData(
