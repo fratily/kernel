@@ -14,9 +14,6 @@
 namespace Fratily\Kernel\Controller;
 
 use Fratily\Kernel\Kernel;
-use Fratily\Router\RouteCollector;
-use Fratily\Http\Message\Response\RedirectResponse;
-use Psr\Http\Message\ServerRequestInterface;
 use Psr\Http\Message\UriInterface;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ResponseFactoryInterface;
@@ -32,11 +29,6 @@ abstract class AbstractController{
     private $kernel;
 
     /**
-     * @var RouteCollector
-     */
-    private $routeCollector;
-
-    /**
      * @var ResponseFactoryInterface
      */
     private $responseFactory;
@@ -46,19 +38,33 @@ abstract class AbstractController{
      *
      * @param   Kernel  $kernel
      *  カーネル
-     * @param   RouteCollector  $routeCollector
-     *  ルートコレクタ
      * @param   ResponseFactoryInterface
      *  レスポンスファクトリ
      */
     public function __construct(
         Kernel $kernel,
-        RouteCollector $routeCollector,
         ResponseFactoryInterface $responseFactory
     ){
         $this->kernel           = $kernel;
-        $this->routeCollector   = $routeCollector;
         $this->responseFactory  = $responseFactory;
+    }
+
+    /**
+     * カーネルを取得する
+     *
+     * @return  Kernel
+     */
+    protected function getKernel(){
+        return $this->kernel;
+    }
+
+    /**
+     * レスポンスファクトリを取得する
+     *
+     * @return  ResponseFactory
+     */
+    protected function getResponseFactory(){
+        return $this->responseFactory;
     }
 
     /**
@@ -80,8 +86,12 @@ abstract class AbstractController{
         string $route,
         array $parameters = []
     ): UriInterface{
-        $path   = $this->routeCollector->reverseRouter($route)->createPath($parameters);
         $query  = "";
+        $path   = $this->getKernel()
+            ->getRouteCollector()
+            ->reverseRouter($route)
+            ->createPath($parameters)
+        ;
 
         if(false !== strpos($path, "?")){
             $explode    = explode("?", $path, 2);
@@ -106,7 +116,9 @@ abstract class AbstractController{
         int $code,
         string $reasonPhrase
     ): ResponseInterface{
-        return $this->responseFactory->createResponse($code, $reasonPhrase);
+        return $this->getResponseFactory()
+            ->createResponse($code, $reasonPhrase)
+        ;
     }
 
     /**
@@ -127,36 +139,5 @@ abstract class AbstractController{
         bool $absolute = true
     ): ResponseInterface{
         throw new \LogicException("未実装");
-    }
-
-    /**
-     * ルート名からリダイレクトレスポンスを生成する
-     *
-     * @param   ServerRequestInterface  $request
-     *  リクエストインスタンス
-     * @param   string  $route
-     *  ルート名
-     * @param   mixed[] $parameters
-     *  パラメータの配列
-     * @param   int $status
-     *  レスポンスステータス
-     * @param   bool    $absolute
-     *  リダイレクト先URIを絶対パスで指定するか
-     *
-     * @return  RedirectResponse
-     */
-    protected function redirectToRoute(
-        ServerRequestInterface $request,
-        string $route,
-        array $parameters = [],
-        int $status = 302,
-        bool $absolute = true
-    ): ResponseInterface{
-        throw new \LogicException("未実装");
-        return $this->redirect(
-            $this->generateUrl($request, $route, $parameters),
-            $status,
-            $absolute
-        );
     }
 }
