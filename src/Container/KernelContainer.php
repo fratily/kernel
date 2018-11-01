@@ -14,32 +14,75 @@
 namespace Fratily\Kernel\Container;
 
 use Fratily\Container\Builder\AbstractContainer;
-use Fratily\Container\Builder\ContainerBuilderInterface;
+use Fratily\Container\Builder\ContainerBuilder;
 
 class KernelContainer extends AbstractContainer{
 
     /**
      * {@inheritdoc}
      */
-    public static function build(ContainerBuilderInterface $builder, array $options){
+    public static function build(ContainerBuilder $builder, array $options){
         $builder
             ->add(
-                "kernel.routeCollector",
-                \Fratily\Router\RouteCollector::class,
+                "kernel",
+                $options["kernel"],
                 [],
-                [\Fratily\Router\RouteCollector::class]
+                [
+                    \Fratily\Kernel\Kernel::class,
+                ]
             )
             ->add(
-                "kernel.controllerResolver",
-                \Fratily\Kernel\Controller\ControllerResolver::class
+                "kernel.container",
+                $builder->lazyGetContainer(),
+                [],
+                [
+                    \Fratily\Container\Container::class,
+                    \Psr\Container\ContainerInterface::class,
+                ]
             )
             ->add(
-                "kernel.responceFactory",
-                \Fratily\Http\Message\ResponseFactory::class,
+                "kernel.routeCollector",
+                $builder->lazyCallable(
+                    function($kernel){
+                        $kernel->getRouteCollector();
+                    },
+                    $builder->lazyGet("kernel")
+                ),
+                [],
+                [
+                    \Fratily\Router\RouteCollector::class,
+                ]
+            )
+            ->add(
+                "kernel.consoleApplication",
+                $builder->lazyCallable(
+                    function($kernel){
+                        $kernel->getConsoleApplication();
+                    },
+                    $builder->lazyGet("kernel")
+                ),
+                [],
+                [
+                    \Fratily\Router\RouteCollector::class,
+                ]
+            )
+            ->add(
+                "kernel.responseFactory",
+                $builder->lazyNew(
+                    \Fratily\Http\Message\ResponseFactory::class
+                ),
                 [],
                 [
                     \Psr\Http\Message\ResponseFactoryInterface::class,
                 ]
+            )
+            ->addShareValue(
+                "kernel.environment",
+                $options["kernel"]->getConfig()->getEnvironment()
+            )
+            ->addShareValue(
+                "kernel.debug",
+                $options["kernel"]->getConfig()->isDebug()
             )
         ;
     }

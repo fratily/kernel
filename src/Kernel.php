@@ -13,8 +13,11 @@
  */
 namespace Fratily\Kernel;
 
-use Psr\Http\Message\ServerRequestInterface;
-use Psr\Http\Message\ResponseInterface;
+use Fratily\Container\Container;
+use Fratily\Container\ContainerFactory;
+use Fratily\Router\RouteCollector;
+use Fratily\Http\Server\RequestHandlerBuilder;
+use Symfony\Component\Console\Application;
 
 /**
  *
@@ -22,81 +25,219 @@ use Psr\Http\Message\ResponseInterface;
 class Kernel{
 
     /**
-     * @var KernelConfigure
+     * @var KernelConfiguration
      */
     private $config;
 
     /**
-     * @var string[]
+     * @var Bundle\Bundle[]
      */
-    private $bundles    = [];
+    private $bundles;
+
+    /**
+     * @var null|Container
+     */
+    private $container;
+
+    /**
+     * @var null|RouteCollector
+     */
+    private $routeCollector;
+
+    /**
+     * @var null|RequestHandlerBuilder
+     */
+    private $requestHandlerBuilder;
+
+    /**
+     * @var null|Application
+     */
+    private $application;
 
     /**
      * Constructor
      *
-     * @param   KernelConfig    $config
+     * @param   KernelConfiguration $config
      *  カーネル設定クラスインスタンス
      */
-    public function __construct(KernelConfigure $config){
+    public function __construct(KernelConfiguration $config){
         $this->config   = $config;
+        $this->bundles  = [];
 
-        foreach($config->getBundles() as $bundle){
-            $this->addBundle($bundle);
+        foreach($this->config->getBundles() as $bundle){
+            if(!is_string($bundle)){
+                throw new \LogicException();
+            }
+
+            $bundle = "\\" === substr($bundle, 0, 1) ? substr($bundle, 1) : $bundle;
+
+            if(array_key_exists($bundle, $this->bundles)){
+                throw new \LogicException();
+            }
+
+            if(
+                !class_exists($bundle)
+                || !is_subclass_of($bundle, Bundle\Bundle::class)
+                || !(new \ReflectionClass($bundle))->isInstantiable()
+            ){
+                $interface  = Bundle\Bundle::class;
+
+                throw new \InvalidArgumentException(
+                    "'{$bundle}' is not a bundle."
+                    . " The bundle must be a class that implements '{$interface}'."
+                );
+            }
+
+            $this->bundles[$bundle] = new $bundle($this);
+        }
+
+        $config->boot();
+
+        foreach($this->bundles as $bundle){
+            $bundle->boot($this);
         }
     }
 
     /**
-     * バンドルを登録する
-     *
-     * @param   string  $bundle
-     *  バンドルクラス名
-     *
-     * @return  void
+     * Destructor
      */
-    private function addBundle(string $bundle){
-        if(
-            !class_exists($bundle)
-            || !is_subclass_of($bundle, Bundle\BundleInterface::class)
-        ){
-            $interface  = Bundle\BundleInterface::class;
-
-            throw new \InvalidArgumentException(
-                "'{$bundle}' is not a bundle."
-                . " The bundle must be a class that implements '{$interface}'."
-            );
+    public function __destruct(){
+        foreach(array_reverse($this->bundles) as $bundle){
+            $bundle->shutdown();
         }
 
-        if(array_key_exists($bundle, $this->bundles)){
-            return;
-        }
-
-        $this->bundles[$bundle] = $bundle;
-
-        foreach($bundle::dependBundles() as $dependBundle){
-            $this->addBundle($dependBundle);
-        }
+        $this->config->shutdown();
     }
 
     /**
-     * カーネル起動時処理
+     * カーネル設定クラスインスタンスを取得する
      *
-     * @return  BootedKernel
+     * @return  KernelConfiguration
+     */
+    public function getConfig(){
+        return $this->config;
+    }
+
+    /**
+     * バンドルのリストを取得
+     *
+     * @return  Bundle\Bundle[]
      *
      * @throws  Exception\KernelBootException
      */
-    public function boot(){
-        return new BootedKernel($this->config, $this->bundles);
+    public function getBundles(){
+        return $this->bundles;
     }
 
     /**
-     * リクエストインスタンスからレスポンスインスタンスを生成する
+     * バンドルを取得する
      *
-     * @param   ServerRequestInterface  $request
-     *  リクエストインスタンス
+     * @param   string  $name
+     *  バンドル名
      *
-     * @return  ResponseInterface
+     * @return  Bundle\Bundle
      */
-    public function handle(ServerRequestInterface $request): ResponseInterface{
-        return $this->boot()->handle($request);
+    public function getBundle(string $name){
+        return $this->bundles[$name] ?? null;
+    }
+
+    /**
+     * サービスコンテナを取得
+     *
+     * @return  Container
+     *
+     * @throws  Exception\KernelBootException
+     */
+    public function getContainer(){
+        if(null === $this->container){
+            $factory    = (new ContainerFactory())
+                ->append(\Fratily\Kernel\Container\KernelContainer::class)
+            ;
+
+            foreach($this->getBundles() as $bundle){
+                foreach($bundle->getContainers() as $container){
+                    $factory->append($container);
+                }
+            }
+
+            foreach($this->getConfig()->getContainers() as $container){
+                $factory->append($container);
+            }
+
+            $this->container    = $factory->create([
+                "kernel"    => $this,
+            ]);
+        }
+
+        return $this->container;
+    }
+
+    /**
+     * ルートコレクターを取得
+     *
+     * @return  RouteCollector
+     *
+     * @throws  Exception\KernelBootException
+     */
+    public function getRouteCollector(){
+        if(null === $this->routeCollector){
+            $this->routeCollector   = new RouteCollector();
+            $resolver               = new Controller\ControllerResolver(
+                $this,
+                new \Doctrine\Common\Annotations\AnnotationReader(null)
+            );
+
+            foreach($this->getConfig()->getControllers() as $controller){
+                foreach($resolver->getRoutes($controller) as $route){
+                    $this->routeCollector->add($route);
+                }
+            }
+        }
+
+        return $this->routeCollector;
+    }
+
+    /**
+     * リクエストハンドラのビルダーを取得
+     *
+     * @return  RequestHandlerBuilder
+     */
+    public function getRequestHandlerBuilder(){
+        if(null === $this->requestHandlerBuilder){
+            $this->requestHandlerBuilder    = new RequestHandlerBuilder();
+
+            $this->getConfig()->middlewareRegister($this->requestHandlerBuilder);
+
+            foreach($this->getBundles() as $bundele){
+                $bundele->middlewareRegister(
+                    $this->requestHandlerBuilder,
+                    ["kernel" => $this]
+                );
+            }
+        }
+
+        return clone $this->requestHandlerBuilder;
+    }
+
+    /**
+     * コンソールアプリケーションを取得
+     *
+     * @return  Application
+     */
+    public function getConsoleApplication(){
+        if(null === $this->application){
+            $this->application  = new Application();
+
+            foreach($this->getBundles() as $bundle){
+                $bundle->commandRegister(
+                    $this->application,
+                    ["kernel" => $this]
+                );
+            }
+
+            $this->config;
+        }
+
+        return $this->application;
     }
 }

@@ -11,10 +11,16 @@
  * @license     MIT
  * @since       1.0.0
  */
-namespace Fratily\Kernel\Controller;
+namespace Fratily\Kernel\Command;
 
-/**
- *
- */
-interface ControllerInterface{
+use Fratily\Kernel\BootedKernel;
+use Fratily\Kernel\KernelConfiguration;
+use Fratily\Container\Container;
+use Symfony\Component\Console\Command\Command as BaseCommand;
+
+abstract class Command extends BaseCommand{
+
+    public function __construct(Container $container){
+
+    }
 }

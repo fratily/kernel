@@ -13,7 +13,7 @@
  */
 namespace Fratily\Kernel\Controller;
 
-use Fratily\Container\Container;
+use Fratily\Kernel\Kernel;
 use Fratily\Router\Routing;
 use Psr\Http\Message\ServerRequestInterface;
 use Psr\Http\Message\ResponseInterface;
@@ -26,9 +26,9 @@ use Psr\Http\Server\RequestHandlerInterface;
 class ActionMiddleware implements MiddlewareInterface{
 
     /**
-     * @var Container
+     * @var Kernel
      */
-    private $container;
+    private $kernel;
 
     /**
      * @var ReflectionCallable
@@ -43,21 +43,21 @@ class ActionMiddleware implements MiddlewareInterface{
     /**
      * Constructor
      *
-     * @param   Container   $container
-     *  サービスコンテナ
+     * @param   Kernel  $kernel
+     *  カーネル
      * @param   callable    $action
      *  アクションコールバック
      * @param   Routing $routing
      *  ルーティング結果
      */
     public function __construct(
-        Container $container,
+        Kernel $kernel,
         callable $action,
         Routing $routing
     ){
-        $this->container    = $container;
-        $this->action       = $action;
-        $this->routing      = $routing;
+        $this->kernel   = $kernel;
+        $this->action   = $action;
+        $this->routing  = $routing;
     }
 
     /**
@@ -67,14 +67,14 @@ class ActionMiddleware implements MiddlewareInterface{
         ServerRequestInterface $request,
         RequestHandlerInterface $handler
     ): ResponseInterface{
-        $response   = $this->container->invokeCallback(
+        $response   = $this->kernel->getContainer()->invokeCallback(
             $this->action,
             array_merge(
                 $this->routing->params,
                 [
                     "request"   => $request,
                     "_route"    => $this->routing->name,
-                    "_handler"  => $handler, // アクションメソッド内で実行しなければ後続のミドルウェアは実行されない。
+                    "_handler"  => $handler,
                 ]
             ),
             [
@@ -92,5 +92,4 @@ class ActionMiddleware implements MiddlewareInterface{
 
         return $response;
     }
-
 }

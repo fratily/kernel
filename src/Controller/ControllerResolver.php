@@ -13,14 +13,19 @@
  */
 namespace Fratily\Kernel\Controller;
 
-use Fratily\Kernel\Bundle\BundleInterface;
+use Fratily\Kernel\Kernel;
 use Fratily\Router\Annotation\Route;
 use Doctrine\Common\Annotations\AnnotationReader;
 
 /**
  *
  */
-class ControllerResolver implements ControllerResolverInterface{
+class ControllerResolver{
+
+    /**
+     * @var Kernel
+     */
+    private $kernel;
 
     /**
      * @var AnnotationReader
@@ -30,10 +35,16 @@ class ControllerResolver implements ControllerResolverInterface{
     /**
      * Constructor
      *
+     * @param   Kernel  $kernel
+     *  カーネル
      * @param   AnnotationReader    $reader
-     * @param   string  $baseName
+     *  アノテーションリーダー
      */
-    public function __construct(AnnotationReader $reader){
+    public function __construct(
+        Kernel $kernel,
+        AnnotationReader $reader
+    ){
+        $this->kernel   = $kernel;
         $this->reader   = $reader;
 
         if(!class_exists(Route::class, true)){
@@ -43,18 +54,33 @@ class ControllerResolver implements ControllerResolverInterface{
     }
 
     /**
-     * {@inheritdoc}
+     * コントローラ内の全てのアクションのルート定義を取得する
+     *
+     * @param   string  $controller
+     *  コントローラクラス
+     *
+     * @return  \Fratily\Router\Route[]
+     *
+     * @throws  Exception\ControllerException
+     * @throws  Exception\ActionException
+     * @throws  Exception\AnnotationException
      */
-    public function getRoutes(
-        string $controller,
-        string $prefix,
-        string $baseNameSpace
-    ): array{
-        $this->isController($baseNameSpace, $controller, true);
+    public function getRoutes(string $controller): array{
+        $this->isController($controller, true);
 
-        $class  = new \ReflectionClass($controller);
         $result = [];
-        $parent = $this->getParentRouteAnnotation($class);
+        $class  = new \ReflectionClass($controller);
+        $parent = null;
+
+        try{
+            $parent = $this->reader->getClassAnnotation($controller, Route::class);
+        }catch(\Exception $e){
+            throw new Exception\AnnotationException(
+                "Annotation error occurred in {$controller}. ({$e->getMessage()})",
+                $e->getCode(),
+                $e
+            );
+        }
 
         foreach($class->getMethods(\ReflectionMethod::IS_PUBLIC) as $method){
             try{
@@ -67,50 +93,38 @@ class ControllerResolver implements ControllerResolverInterface{
                 );
             }
 
-            if(null !== $route){
-                if(
-                    $method->isStatic()
-                    || $method->isAbstract()
-                    || 0 === strpos($method->getName(), "__")
-                ){
-                    throw new Exception\ActionException(
-                        "Method '{$class->getName()}::{$method->getName()}()' can not be used as action."
-                    );
-                }
-
-                if(null !== $parent){
-                    $route->setParent($parent);
-                }
-
-                $route  = $route->cerateRoute();
-
-                if(null === $route->getName()){
-                    $route  = $route->withName(
-                        $this->getRouteName($prefix, $baseNameSpace, $method)
-                    );
-                }
-
-                $result[]   = $route->withData(
-                    [
-                        "action"    => [
-                            "class"     => $class->getName(),
-                            "method"    => $method->getName(),
-                        ],
-                    ]
-                );
+            if(null === $route){
+                continue;
             }
+
+            $this->isAction($method, true);
+
+            if(null !== $parent){
+                $route->setParent($parent);
+            }
+
+            $route  = $route->cerateRoute();
+
+            if(null === $route->getName()){
+                $route  = $route->withName($this->getRouteName($method));
+            }
+
+            $result[]   = $route->withData([
+                "action"    => [
+                    "class"     => $class->getName(),
+                    "method"    => $method->getName(),
+                ],
+            ]);
         }
 
         return $result;
     }
 
     /**
-     * クラスがコントローラーとして使用可能か確認する
+     * クラスがコントローラーの定義を満たしているか確認する
      *
-     * @param   string  $baseNameSpace
-     *  コントローラークラスのベースとなるネームスペース
-     * @param   string  $class
-     *  確認対象クラス名
+     * @param   \ReflectionClass    $class
+     *  確認対象クラス
      * @param   bool    $throw
      *  もしtrueが設定された場合、コントローラとして利用できない場合に
      *  例外をスローする。
@@ -118,94 +132,83 @@ class ControllerResolver implements ControllerResolverInterface{
      * @return  bool
      *  コントローラとして使用可能であればtrue、それ以外の場合はfalseを返す
      *
-     * @throws  \InvalidArgumentException
      * @throws  Exception\ControllerException
      */
-    protected function isController(string $baseNameSpace, string $class, bool $throw = true){
+    protected function isController(\ReflectionClass $class, bool $throw = true){
+        $result     = false;
+        $namespace  = $this->kernel->getConfig()->getNameSpace() . "\\Controller\\";
+
         try{
-            // is exists?
-            if(!class_exists($class)){
-                throw new \InvalidArgumentException(
-                    "Class '{$class}' not found."
-                );
-            }
-
-            $ref    = new \ReflectionClass($class);
-
-            // is instantiable?
             if(!$ref->isInstantiable()){
                 throw new \InvalidArgumentException(
                     "Class '{$ref->getName()}' is not instantiable."
                 );
             }
 
-            // must implements ControllerInterface
-            if(!is_subclass_of($class, ControllerInterface::class)){
-                $parent = AbstractController::class;
+            if(0 !== strpos($ref->getName(), $namespace)){
                 throw new Exception\ControllerException(
-                    "Controller must inherit {$parent}."
-                    . " But {$ref->getName()} dose not inherit it."
+                    "Class '{$class}' is not a controller. The controller class"
+                    . " must be included in the namespace '{$namespace}'."
                 );
             }
 
-            if(0 !== strpos($ref->getName(), $baseNameSpace)){
-                throw new Exception\ControllerException(
-                    "Controller class namespace must begin with '{$baseNameSpace}'"
-                    . " But the namespace of {$ref->getName()}"
-                    . "dose not begin with '{$baseNameSpace}'"
-                );
-            }
-
-            // end Controller
             if("Controller" !== substr($ref->getShortName(), -10)){
                 throw new Exception\ControllerException(
                     "The name of the controller class must end with 'Controller'."
                     . " But {$ref->getName()} does not end with 'Controller'."
                 );
             }
+
+            $result = true;
         }catch(\Exception $e){
             if($throw){
                 throw $e;
             }
-
-            return false;
         }
 
-        return true;
+        return $result;
     }
 
     /**
-     * アクションメソッドの親Routeアノテーションを取得する
+     * メソッドがアクションの定義を満たしているか確認する
      *
-     * @param   \ReflectionClass    $current
-     *  取得対象コントローラクラスのリフレクションインスタンス
+     * @param   \ReflectionMethod   $method
+     *  確認対象メソッド
+     * @param   bool    $throw
+     *  もしtrueが設定された場合、コントローラとして利用できない場合に
+     *  例外をスローする。
      *
-     * @return  Route|null
+     * @return  bool
+     *  アクションとして使用可能であればtrue、それ以外の場合はfalseを返す
      *
-     * @throws  Controller\Exception\AnnotationException
+     * @throws  Exception\ControllerException
      */
-    protected function getParentRouteAnnotation(\ReflectionClass $current){
-        $result     = null;
+    protected function isAction(\ReflectionMethod $method, bool $throw = true){
+        $result = false;
 
-        do{
-            try{
-                $route  = $this->reader->getClassAnnotation($current, Route::class);
-            }catch(\Exception $e){
-                throw new Exception\AnnotationException(
-                    "Annotation error occurred in {$controller}. ({$e->getMessage()})",
-                    $e->getCode(),
-                    $e
-                );
+        try{
+            if(!$method->isPublic()){
+                throw new Exception\ActionException();
             }
 
-            if(null !== $route){
-                if(null === $result){
-                    $result = $route;
-                }else{
-                    $result->setParent($route);
-                }
+            if($method->isAbstract()){
+                throw new Exception\ActionException();
             }
-        }while(false !== ($current = $current->getParentClass()));
+
+            if($method->isStatic()){
+                throw new Exception\ActionException();
+            }
+
+            if(0 === strpos($method->getName(), "__")){
+                throw new Exception\ActionException();
+            }
+
+            $result = true;
+        }catch(Exception\ActionException $e){
+            if($throw){
+                throw $e;
+            }
+        }
 
         return $result;
     }
@@ -222,25 +225,21 @@ class ControllerResolver implements ControllerResolverInterface{
      *
      * @return  string
      */
-    protected function getRouteName(
-        string $prefix,
-        string $baseNameSpace,
-        \ReflectionMethod $method
-    ){
-        $this->isController(
-            $baseNameSpace,
-            $method->getDeclaringClass()->getName(),
-            true
+    private function getRouteName(\ReflectionMethod $method){
+        $class  = $method->getDeclaringClass()->getName();
+        $name   = substr(
+            $class,
+            strlen($this->kernel->getConfig()->getNameSpace() . "\\"),
+            -10 // Controller
         );
 
+        $controller = implode("_", array_map("strtolower", explode("\\", $name)));
+        $action     = $method->getName();
 
-        $class  = $method->getDeclaringClass()->getName();
-        $name   = $prefix . "\\" . substr($class, strlen($baseNameSpace), -10);
+        if("Action" === substr($action, -6)){
+            $action = substr($action, 0, -6);
+        }
 
-        return
-            implode("_", array_map("lcfirst", explode("\\", $name)))
-            . ":"
-            . $method->getName()
-        ;
+        return "{$controller}:{$action}";
     }
 }

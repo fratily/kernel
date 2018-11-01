@@ -13,8 +13,8 @@
  */
 namespace Fratily\Kernel\Controller;
 
+use Fratily\Kernel\Kernel;
 use Fratily\Router\RouteCollector;
-use Fratily\Http\Message\Uri;
 use Fratily\Http\Message\Response\RedirectResponse;
 use Psr\Http\Message\ServerRequestInterface;
 use Psr\Http\Message\UriInterface;
@@ -24,12 +24,17 @@ use Psr\Http\Message\ResponseFactoryInterface;
 /**
  *
  */
-abstract class AbstractController implements ControllerInterface{
+abstract class AbstractController{
 
     /**
-     * @var RouteCollector|null
+     * @var Kernel
      */
-    private $routeCollector = null;
+    private $kernel;
+
+    /**
+     * @var RouteCollector
+     */
+    private $routeCollector;
 
     /**
      * @var ResponseFactoryInterface
@@ -39,22 +44,28 @@ abstract class AbstractController implements ControllerInterface{
     /**
      * Constructor
      *
-     * @param   ResponseFactoryInterface    $factory
-     *  レスポンスファクトリーインスタンス
+     * @param   Kernel  $kernel
+     *  カーネル
+     * @param   RouteCollector  $routeCollector
+     *  ルートコレクタ
+     * @param   ResponseFactoryInterface
+     *  レスポンスファクトリ
      */
     public function __construct(
-        ResponseFactoryInterface $factory,
-        RouteCollector $routeCollector
+        Kernel $kernel,
+        RouteCollector $routeCollector,
+        ResponseFactoryInterface $responseFactory
     ){
-        $this->responseFactory  = $factory;
+        $this->kernel           = $kernel;
         $this->routeCollector   = $routeCollector;
+        $this->responseFactory  = $responseFactory;
     }
 
     /**
      * ルート名からURLを生成する
      *
-     * @param   ServerRequestInterface  $request
-     *  リクエストインスタンス
+     * @param   UriInterface  $baseUri
+     *  もととなるURIインスタンス
      * @param   string  $route
      *  ルート名
      * @param   mixed[] $parameters
@@ -65,23 +76,20 @@ abstract class AbstractController implements ControllerInterface{
      * @throws \LogicException
      */
     protected function generateUrl(
-        ServerRequestInterface $request,
+        UriInterface $baseUri,
         string $route,
         array $parameters = []
     ): UriInterface{
-        if(!$this->routeCollector instanceof RouteCollector){
-            throw new \LogicException;
+        $path   = $this->routeCollector->reverseRouter($route)->createPath($parameters);
+        $query  = "";
+
+        if(false !== strpos($path, "?")){
+            $explode    = explode("?", $path, 2);
+            $path       = $explode[0];
+            $query      = $explode[1];
         }
 
-        return Uri::newInstance(
-            $request->getUri()->getScheme(),
-            $request->getUri()->getUserInfo(),
-            $request->getUri()->getHost(),
-            $request->getUri()->getPort(),
-            $this->routeCollector->reverseRouter($route)->createPath($parameters),
-            "",
-            ""
-        );
+        return $baseUri->withPath($path)->withQuery($query);
     }
 
     /**

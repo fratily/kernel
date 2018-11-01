@@ -41,15 +41,6 @@ interface DirectoryStructureInterface{
     public function getSrcDir(): string;
 
     /**
-     * アセットディレクトリを取得する
-     *
-     * jsやcssなどアプリケーション内で共有されるリソースを格納するディレクトリ。
-     *
-     * @return  string
-     */
-    public function getAssetDir(): string;
-
-    /**
      * 設定ディレクトリを取得する
      *
      * @return  string
@@ -58,6 +49,10 @@ interface DirectoryStructureInterface{
 
     /**
      * ソースコードディレクトリに対応するネームスペースを取得する
+     *
+     * 末尾にバックスラッシュを含んではならない。
+     *
+     * @return  string
      */
     public function getNameSpace(): string;
 
@@ -69,9 +64,21 @@ interface DirectoryStructureInterface{
     public function getContainers(): array;
 
     /**
-     * コントローラークラスの配列を取得する
+     * srcディレクトリ内に存在するクラスのリストを取得する
+     *
+     * @param   string  $namespace
+     *  ネームスペース。ベースとしてsrcディレクトリのネームスペースが指定される
+     *  ため、`$this->getNameSpace() . "\\" . $namespace`で検索される。
+     * @param   bool    $recursive
+     *  子孫ディレクトリが存在した場合、それらの中のクラスも取得するか
+     * @param   callable    $filter
+     *  結果に追加するクラスをフィルタリングするためのコールバック
      *
      * @return  string[]
      */
-    public function getControllers(): array;
+    public function getClasses(
+        string $namespace = null,
+        bool $recursive = true,
+        callable $filter = null
+    ): array;
 }

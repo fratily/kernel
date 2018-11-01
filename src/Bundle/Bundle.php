@@ -13,51 +13,50 @@
  */
 namespace Fratily\Kernel\Bundle;
 
-use Fratily\Kernel\KernelConfigure;
+use Fratily\Kernel\Kernel;
 use Fratily\Http\Server\RequestHandlerBuilder;
+use Symfony\Component\Console\Application;
 
 /**
  *
  */
-abstract class Bundle implements BundleInterface{
+abstract class Bundle implements DirectoryStructureInterface, MiddlewareRegisterInterface, CommandRegisterInterface{
 
     use DirectoryStructureTrait;
 
     /**
-     * @var KernelConfigure
+     * @var Kernel
      */
-    private $config;
+    private $kernel;
 
     /**
-     * @var string
+     * @var null|string
      */
-    protected $name       = null;
+    protected $name;
 
     /**
-     * {@inheritdoc}
-     */
-    public static function dependBundles(): array{
-        return [];
-    }
-
-    /**
-     * {@inheritdoc}
-     */
-    public function __construct(KernelConfigure $config){
-        $this->config   = $config;
-    }
-
-    /**
-     * カーネル設定クラスインスタンスを取得する
+     * Constructor
      *
-     * @return  KErnelConfigure
+     * @param   Kernel  $kernel
+     *  カーネル
      */
-    public function getConfig(){
-        return $this->config;
+    final public function __construct(Kernel $kernel){
+        $this->kernel   = $kernel;
     }
 
     /**
-     * {@inheritdoc}
+     * 起動済みカーネルインスタンスを取得する
+     *
+     * @return  BootedKernel
+     */
+    public function getKernel(){
+        return $this->kernel;
+    }
+
+    /**
+     * バンドルの名前を取得する
+     *
+     * @return  string
      */
     public function getName(): string{
         if(null === $this->name){
@@ -83,13 +82,19 @@ abstract class Bundle implements BundleInterface{
     /**
      * {@inheritdoc}
      */
-    public function middlewareRegister(RequestHandlerBuilder $builder){
+    public function middlewareRegister(
+        RequestHandlerBuilder $builder,
+        array $options = []
+    ): void{
     }
 
     /**
      * {@inheritdoc}
      */
-    public function middlewareRegisterForGlobal(RequestHandlerBuilder $builder){
+    public function commandRegister(
+        Application $app,
+        array $options = []
+    ): void{
     }
 
     /**

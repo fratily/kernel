@@ -14,6 +14,7 @@
 namespace Fratily\Kernel\Bundle;
 
 use Fratily\Utility\FileSystem;
+use Fratily\Container\Builder\AbstractContainer;
 
 /**
  *
@@ -21,29 +22,29 @@ use Fratily\Utility\FileSystem;
 trait DirectoryStructureTrait{
 
     /**
-     * @var string|null
+     * @var null|string
      */
-    private $srcDir;
+    protected $srcDir;
 
     /**
-     * @var string|null
+     * @var null|string
      */
-    private $projectDir;
+    protected $projectDir;
 
     /**
-     * @var string|null
+     * @var null|string
      */
-    private $namespace;
+    protected $namespace;
 
     /**
-     * @var string[]|null
+     * @var null|string[]
      */
-    private $controllers;
+    protected $containers;
 
     /**
-     * @var string[]|null
+     * @var null|string[]
      */
-    private $containers;
+    protected $commands;
 
     /**
      * プロジェクトディレクトリを取得する
@@ -57,7 +58,7 @@ trait DirectoryStructureTrait{
             $this->projectDir   = $this->getSrcDir();
 
             while(!file_exists($this->projectDir . "/composer.json")){
-                if($this->projectDir === dirname($this->projectDir)){
+                if($this->projectDir === dirname($this->projectDir)){ // Reaching root dir
                     $this->projectDir   = $this->getSrcDir();
                     break;
                 }
@@ -77,22 +78,11 @@ trait DirectoryStructureTrait{
     public function getSrcDir(): string{
         if(null === $this->srcDir){
             $this->srcDir   = dirname(
-                (new \ReflectionClass(static::class))->getFileName()
+                (new \ReflectionObject($this))->getFileName()
             );
         }
 
         return $this->srcDir;
-    }
-
-    /**
-     * アセットディレクトリを取得する
-     *
-     * jsやcssなどアプリケーション内で共有されるリソースを格納するディレクトリ。
-     *
-     * @return  string
-     */
-    public function getAssetDir(): string{
-        return $this->getProjectDir() . DIRECTORY_SEPARATOR . "asset";
     }
 
     /**
@@ -106,10 +96,14 @@ trait DirectoryStructureTrait{
 
     /**
      * ソースコードディレクトリに対応するネームスペースを取得する
+     *
+     * 末尾にバックスラッシュを含んではならない。
+     *
+     * @return  string
      */
     public function getNameSpace(): string{
         if(null === $this->namespace){
-            $this->namespace    = (new \ReflectionClass(static::class))
+            $this->namespace    = (new \ReflectionObject($this))
                 ->getNamespaceName()
             ;
         }
@@ -124,10 +118,12 @@ trait DirectoryStructureTrait{
      */
     public function getContainers(): array{
         if(null === $this->containers){
-            $this->containers   = $this->getClassesInSrcDir(
+            $this->containers   = $this->getClasses(
                 "Container",
-                "Container",
-                true
+                true,
+                function(string $class){
+                    return is_subclass_of($class, AbstractContainer::class);
+                }
             );
         }
 
@@ -135,82 +131,55 @@ trait DirectoryStructureTrait{
     }
 
     /**
-     * コントローラークラスの配列を取得する
+     * srcディレクトリ内に存在するクラスのリストを取得する
+     *
+     * @param   string  $namespace
+     *  ネームスペース。ベースとしてsrcディレクトリのネームスペースが指定される
+     *  ため、`$this->getNameSpace() . "\\" . $namespace`で検索される。
+     * @param   bool    $recursive
+     *  子孫ディレクトリが存在した場合、それらの中のクラスも取得するか
+     * @param   callable    $filter
+     *  結果に追加するクラスをフィルタリングするためのコールバック
      *
      * @return  string[]
      */
-    public function getControllers(): array{
-        if(null === $this->controllers){
-            $this->controllers  = $this->getClassesInSrcDir(
-                "Controller",
-                "Controller",
-                true
+    public function getClasses(
+        string $namespace = null,
+        bool $recursive = true,
+        callable $filter = null
+    ): array{
+        $baseNameSpace  = $this->getNameSpace();
+        $searchDir      = $this->getSrcDir();
+        $result         = [];
+
+        if(null !== $namespace){
+            $namespace      = trim($namespace, "\\");
+            $baseNameSpace  = $this->getNameSpace() . "\\" . $namespace;
+            $searchDir      = realpath(
+                $this->getSrcDir()
+                . DIRECTORY_SEPARATOR
+                . str_replace("\\", DIRECTORY_SEPARATOR, $namespace)
             );
         }
 
-        return $this->controllers;
-    }
-
-    /**
-     * ソースコードディレクトリ内で定義されているクラスリストを取得する
-     *
-     * PSR-4に従ったオートロード構成の場合のみ正しく動作する。
-     *
-     * @param   string  $subDir
-     *  ソースコード内の検索するサブディレクトリ
-     * @param   string  $suffix
-     *  クラス名の接尾語
-     * @param   bool    $instantiable
-     *  インスタンス化可能なクラスだけを取得するか
-     *
-     * @return  string[]
-     */
-    protected function getClassesInSrcDir(
-        string $subDir = "",
-        string $suffix = "",
-        bool $instantiable = true
-    ){
-        $result = [];
-        $subDir = trim(
-            str_replace(["\\", "/"], DIRECTORY_SEPARATOR, $subDir),
-            DIRECTORY_SEPARATOR
-        );
-        $subNs  = str_replace(DIRECTORY_SEPARATOR, "\\", $subDir);
-        $search = realpath(
-            $this->getSrcDir()
-            . (
-                "" === $subDir
-                    ? ""
-                    : DIRECTORY_SEPARATOR . $subDir
-            )
-        );
-
-        if(false === $search || !is_dir($search)){
-            return [];
+        if(false === $searchDir || !is_dir($searchDir)){
+            return $result;
         }
 
-        foreach(FileSystem::getFiles($search, true) as $file){
-            if("{$suffix}.php" !== substr($file, -(strlen($suffix) + 4))){
+        foreach(FileSystem::getFiles($searchDir, $recursive) as $file){
+            $classFile  = substr($file, strlen($searchDir . DIRECTORY_SEPARATOR));
+
+            if(".php" !== substr($classFile, -4)){
                 continue;
             }
 
-            $class  =
-                $this->getNameSpace()
-                . "\\{$subNs}\\"
-                . str_replace(
-                    "/",
-                    "\\",
-                    substr(substr($file, 0, -4), strlen($search) + 1)
-                )
-            ;
+            $class  = $baseNameSpace . "\\" . substr($classFile, 0, -4);
 
-            if(
-                !class_exists($class)
-                || (
-                    $instantiable
-                    && !(new \ReflectionClass($class))->isInstantiable()
-                )
-            ){
+            if(!class_exists($class)){
+                continue;
+            }
+
+            if(null !== $filter && false === $filter($class)){
                 continue;
             }
 

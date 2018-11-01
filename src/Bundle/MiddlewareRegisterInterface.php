@@ -16,33 +16,22 @@ namespace Fratily\Kernel\Bundle;
 use Fratily\Http\Server\RequestHandlerBuilder;
 
 /**
- * - root / project
- * - - asset
- * - - config
- * - - src <- Base point of bundle namespace.
- * - - - Controller
- * - - - Container
- * - - composer.json <- The directory where this file exists is the project dir.
+ *
  */
 interface MiddlewareRegisterInterface{
 
     /**
-     * バンドル内でのみ実行されるミドルウェアを登録する
+     * ミドルウェアを登録する
      *
      * @param RequestHandlerBuilder $builder
      *  ハンドラのビルダー
+     * @param   mixed[] $options
+     *  オプション値のリスト
      *
      * @return  void
      */
-    public function middlewareRegister(RequestHandlerBuilder $builder);
-
-    /**
-     * 全てのバンドルで実行されるミドルウェアを登録する
-     *
-     * @param   RequestHandlerBuilder   $builder
-     *  ハンドラのビルダー
-     *
-     * @return  void
-     */
-    public function middlewareRegisterForGlobal(RequestHandlerBuilder $builder);
+    public function middlewareRegister(
+        RequestHandlerBuilder $builder,
+        array $options
+    ): void;
 }

@@ -13,28 +13,25 @@
  */
 namespace Fratily\Kernel\Bundle;
 
+use Symfony\Component\Console\Application;
+
 /**
- * - root / project
- * - - asset
- * - - config
- * - - src <- Base point of bundle namespace.
- * - - - Controller
- * - - - Container
- * - - composer.json <- The directory where this file exists is the project dir.
+ *
  */
-interface BootableInterface{
+interface CommandRegisterInterface{
 
     /**
-     * バンドルの起動時処理
+     * コマンドを登録する
+     *
+     * @param   Application $app
+     *  アプリケーション
+     * @param   mixed[] $options
+     *  オプション値のリスト
      *
      * @return  void
      */
-    public function boot(): void;
-
-    /**
-     * バンドルの終了時処理
-     *
-     * @return  void
-     */
-    public function shutdown(): void;
+    public function commandRegister(
+        Application $app,
+        array $options = []
+    ): void;
 }
