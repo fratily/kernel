@@ -46,7 +46,7 @@ class KernelContainer extends AbstractContainer{
                     function($kernel){
                         $kernel->getRouteCollector();
                     },
-                    $builder->lazyGet("kernel")
+                    [$builder->lazyGet("kernel")]
                 ),
                 [],
                 [
@@ -59,7 +59,7 @@ class KernelContainer extends AbstractContainer{
                     function($kernel){
                         $kernel->getConsoleApplication();
                     },
-                    $builder->lazyGet("kernel")
+                    [$builder->lazyGet("kernel")]
                 ),
                 [],
                 [
