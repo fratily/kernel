@@ -54,7 +54,7 @@ class KernelManager{
 
         if($routing->found){
             $method = $routing->data["action"]["method"];
-            $object = $this->container->getInstance(
+            $object = $kernel->getContainer()->getInstance(
                 $routing->data["action"]["class"]
             );
             $action = [$object, $method];
@@ -72,8 +72,8 @@ class KernelManager{
 
         return $handlerBuilder
             ->create(
-                $this->container->has("kernel.responseFactory")
-                    ? $this->container->get("kernel.responseFactory")
+                $kernel->getContainer()->has("kernel.responseFactory")
+                    ? $kernel->getContainer()->get("kernel.responseFactory")
                     : new \Fratily\Http\Message\ResponseFactory()
             )
             ->handle(
