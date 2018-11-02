@@ -114,7 +114,7 @@ abstract class AbstractController{
      */
     protected function generateResponse(
         int $code,
-        string $reasonPhrase
+        string $reasonPhrase = ""
     ): ResponseInterface{
         return $this->getResponseFactory()
             ->createResponse($code, $reasonPhrase)

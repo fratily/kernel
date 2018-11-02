@@ -66,14 +66,18 @@ class ControllerResolver{
      * @throws  Exception\AnnotationException
      */
     public function getRoutes(string $controller): array{
-        $this->isController($controller, true);
+        if(!class_exists($controller)){
+            throw new \InvalidArgumentException();
+        }
 
         $result = [];
         $class  = new \ReflectionClass($controller);
         $parent = null;
 
+        $this->isController($class, true);
+
         try{
-            $parent = $this->reader->getClassAnnotation($controller, Route::class);
+            $parent = $this->reader->getClassAnnotation($class, Route::class);
         }catch(\Exception $e){
             throw new Exception\AnnotationException(
                 "Annotation error occurred in {$controller}. ({$e->getMessage()})",
@@ -139,23 +143,23 @@ class ControllerResolver{
         $namespace  = $this->kernel->getConfig()->getNameSpace() . "\\Controller\\";
 
         try{
-            if(!$ref->isInstantiable()){
+            if(!$class->isInstantiable()){
                 throw new \InvalidArgumentException(
-                    "Class '{$ref->getName()}' is not instantiable."
+                    "Class '{$class->getName()}' is not instantiable."
                 );
             }
 
-            if(0 !== strpos($ref->getName(), $namespace)){
+            if(0 !== strpos($class->getName(), $namespace)){
                 throw new Exception\ControllerException(
                     "Class '{$class}' is not a controller. The controller class"
                     . " must be included in the namespace '{$namespace}'."
                 );
             }
 
-            if("Controller" !== substr($ref->getShortName(), -10)){
+            if("Controller" !== substr($class->getShortName(), -10)){
                 throw new Exception\ControllerException(
                     "The name of the controller class must end with 'Controller'."
-                    . " But {$ref->getName()} does not end with 'Controller'."
+                    . " But {$class->getName()} does not end with 'Controller'."
                 );
             }
 
