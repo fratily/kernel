@@ -233,7 +233,7 @@ class ControllerResolver{
         $class  = $method->getDeclaringClass()->getName();
         $name   = substr(
             $class,
-            strlen($this->kernel->getConfig()->getNameSpace() . "\\"),
+            strlen($this->kernel->getConfig()->getNameSpace() . "\\Controller\\"),
             -10 // Controller
         );
 
