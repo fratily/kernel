@@ -13,24 +13,22 @@
  */
 namespace Fratily\Kernel;
 
+use Fratily\Kernel\Container\KernelContainer;
 use Fratily\Container\Container;
 use Fratily\Container\ContainerFactory;
 use Fratily\Router\RouteCollector;
-use Fratily\Http\Server\RequestHandlerBuilder;
 use Symfony\Component\Console\Application;
+use Symfony\Component\Console\Input\InputInterface;
+use Psr\Http\Message\ServerRequestInterface;
+use Psr\Http\Message\ResponseInterface;
 
 /**
  *
  */
-class Kernel{
+abstract class Kernel extends Bundle\Bundle{
 
     /**
-     * @var KernelConfiguration
-     */
-    private $config;
-
-    /**
-     * @var Bundle\Bundle[]
+     * @var Bundle\BundleInterface[]
      */
     private $bundles;
 
@@ -50,51 +48,39 @@ class Kernel{
     private $requestHandlerBuilder;
 
     /**
-     * @var null|Application
-     */
-    private $application;
-
-    /**
      * Constructor
      *
-     * @param   KernelConfiguration $config
-     *  カーネル設定クラスインスタンス
+     * @param   string  $environment
+     *  環境識別文字
+     * @param   bool    $debug
+     *  デバッグモードフラグ
      */
-    public function __construct(KernelConfiguration $config){
-        $this->config   = $config;
+    public function __construct(string $environment, bool $debug){
+        parent::__construct($environment, $debug);
+
         $this->bundles  = [];
 
-        foreach($this->config->getBundles() as $bundle){
-            if(!is_string($bundle)){
+        foreach($this->getRegisterBundles() as $bundle){
+            if(!is_string($bundle) || !class_exists($bundle)){
                 throw new \LogicException();
             }
 
-            $bundle = "\\" === substr($bundle, 0, 1) ? substr($bundle, 1) : $bundle;
-
-            if(array_key_exists($bundle, $this->bundles)){
-                throw new \LogicException();
-            }
+            $reflection = new \ReflectionClass($bundle);
 
             if(
-                !class_exists($bundle)
-                || !is_subclass_of($bundle, Bundle\Bundle::class)
-                || !(new \ReflectionClass($bundle))->isInstantiable()
+                !$reflection->implementsInterface(Bundle\BundleInterface::class)
+                || !$reflection->isInstantiable()
             ){
-                $interface  = Bundle\Bundle::class;
-
-                throw new \InvalidArgumentException(
-                    "'{$bundle}' is not a bundle."
-                    . " The bundle must be a class that implements '{$interface}'."
-                );
+                throw new \LogicException();
             }
 
-            $this->bundles[$bundle] = new $bundle($this);
+            $this->bundles[$reflection->getName()] = $reflection->newInstance();
         }
 
-        $config->boot();
+        $this->bundles[static::class]   = $this;
 
         foreach($this->bundles as $bundle){
-            $bundle->boot($this);
+            $bundle->boot();
         }
     }
 
@@ -102,43 +88,38 @@ class Kernel{
      * Destructor
      */
     public function __destruct(){
-        foreach(array_reverse($this->bundles) as $bundle){
+        foreach($this->bundles as $bundle){
             $bundle->shutdown();
         }
-
-        $this->config->shutdown();
     }
+
+    /**
+     * 登録するバンドルクラスのリストを取得する
+     *
+     * @return  $string[]
+     */
+    abstract protected function getRegisterBundles(): array;
 
     /**
      * カーネル設定クラスインスタンスを取得する
      *
      * @return  KernelConfiguration
      */
-    public function getConfig(){
-        return $this->config;
+    public function getConfigDir(){
+        return $this->getProjectDir() . DIRECTORY_SEPARATOR . "config";
     }
 
     /**
-     * バンドルのリストを取得
-     *
-     * @return  Bundle\Bundle[]
-     *
-     * @throws  Exception\KernelBootException
+     * {@inheritdoc}
      */
-    public function getBundles(){
-        return $this->bundles;
-    }
-
-    /**
-     * バンドルを取得する
-     *
-     * @param   string  $name
-     *  バンドル名
-     *
-     * @return  Bundle\Bundle
-     */
-    public function getBundle(string $name){
-        return $this->bundles[$name] ?? null;
+    public function getControllers(){
+        return $this->getClasses(
+            "Container",
+            true,
+            function(string $class){
+                return (new \ReflectionClass($class))->isInstantiable();
+            }
+        );
     }
 
     /**
@@ -154,14 +135,10 @@ class Kernel{
                 ->append(\Fratily\Kernel\Container\KernelContainer::class)
             ;
 
-            foreach($this->getBundles() as $bundle){
-                foreach($bundle->getContainers() as $container){
-                    $factory->append($container);
+            foreach($this->bundles as $bundle){
+                if($bundle instanceof Bundle\ContainerRegisterInterface){
+                    $bundle->containerRegister($factory);
                 }
-            }
-
-            foreach($this->getConfig()->getContainers() as $container){
-                $factory->append($container);
             }
 
             $this->container    = $factory->create([
@@ -187,9 +164,11 @@ class Kernel{
                 new \Doctrine\Common\Annotations\AnnotationReader(null)
             );
 
-            foreach($this->getConfig()->getControllers() as $controller){
-                foreach($resolver->getRoutes($controller) as $route){
-                    $this->routeCollector->add($route);
+            foreach($this->bundles as $bundle){
+                foreach($bundle->getControllers() as $controller){
+                    foreach($resolver->getRoutes($controller) as $route){
+                        $this->routeCollector->add($route);
+                    }
                 }
             }
         }
@@ -204,15 +183,14 @@ class Kernel{
      */
     public function getRequestHandlerBuilder(){
         if(null === $this->requestHandlerBuilder){
-            $this->requestHandlerBuilder    = new RequestHandlerBuilder();
+            $this->requestHandlerBuilder    = new RequestHandlerBuilder(
+                $this->getContainer()
+            );
 
-            $this->getConfig()->middlewareRegister($this->requestHandlerBuilder);
-
-            foreach($this->getBundles() as $bundele){
-                $bundele->middlewareRegister(
-                    $this->requestHandlerBuilder,
-                    ["kernel" => $this]
-                );
+            foreach($this->bundles as $bundle){
+                if($bundle instanceof Bundle\MiddlewareRegisterInterface){
+                    $bundle->middlewareRegister($this->requestHandlerBuilder);
+                }
             }
         }
 
@@ -220,24 +198,81 @@ class Kernel{
     }
 
     /**
-     * コンソールアプリケーションを取得
+     * リクエストインスタンスからレスポンスインスタンスを生成する
      *
-     * @return  Application
+     * @param   ServerRequestInterface  $request
+     *  リクエストインスタンス
+     *
+     * @return  ResponseInterface
      */
-    public function getConsoleApplication(){
-        if(null === $this->application){
-            $this->application  = new Application();
+    public function handle(ServerRequestInterface $request): ResponseInterface{
+        $routing        = $this->getRouteCollector()
+            ->router($request->getUri()->getHost(), $request->getMethod())
+            ->search($request->getUri()->getPath())
+        ;
+        $handlerBuilder = $kernel->getRequestHandlerBuilder();
 
-            foreach($this->getBundles() as $bundle){
-                $bundle->commandRegister(
-                    $this->application,
-                    ["kernel" => $this]
-                );
+        if($routing->found){
+            $method = $routing->data["action"]["method"];
+            $object = $kernel->getContainer()->getInstance(
+                $routing->data["action"]["class"]
+            );
+            $action = [$object, $method];
+
+            if($object instanceof Bundle\MiddlewareRegisterInterface){
+                $object->middlewareRegister($handlerBuilder);
             }
-
-            $this->config;
+        }else{
+            $action = function(){
+                throw new \Fratily\Http\Message\Status\NotFound();
+            };
         }
 
-        return $this->application;
+        return $handlerBuilder
+            ->append(
+                new Controller\ActionMiddleware($this->getContainer())
+            )
+            ->create(
+                $kernel->getContainer()->has("kernel.responseFactory")
+                    ? $kernel->getContainer()->get("kernel.responseFactory")
+                    : new \Fratily\Http\Message\ResponseFactory()
+            )
+            ->handle(
+                $request
+                    ->withAttribute("action", $action)
+                    ->withAttribute("routing", $routing)
+                    ->withAttribute("kernel", $kernel)
+                    ->withAttribute(
+                        "environment",
+                        $kernel->getConfig()->getEnvironment()
+                    )
+                    ->withAttribute(
+                        "debug",
+                        $kernel->getConfig()->isDebug()
+                    )
+            )
+        ;
+    }
+
+    /**
+     *
+     * @param \Fratily\Kernel\InputInterface $input
+     * @return type
+     * @throws \LogicException
+     */
+    public function run(InputInterface $input){
+        if(!$this->getContainer()->has(KernelContainer::SERVICE_CONSOLE_APP)){
+            throw new \LogicException;
+        }
+
+        $console    = $this->getContainer()->get(KernelContainer::SERVICE_CONSOLE_APP);
+
+        if(!$console instanceof Application){
+            throw new \LogicException;
+        }
+
+        $console->run($input);
+
+        return;
     }
 }

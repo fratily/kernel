@@ -13,9 +13,10 @@
  */
 namespace Fratily\Kernel\Controller;
 
-use Fratily\Kernel\Kernel;
+use Fratily\Container\Container;
 use Fratily\Router\Routing;
 use Psr\Http\Message\ServerRequestInterface;
+use Psr\Http\Message\RequestInterface;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Server\MiddlewareInterface;
 use Psr\Http\Server\RequestHandlerInterface;
@@ -26,19 +27,9 @@ use Psr\Http\Server\RequestHandlerInterface;
 class ActionMiddleware implements MiddlewareInterface{
 
     /**
-     * @var Kernel
+     * @var Container
      */
-    private $kernel;
-
-    /**
-     * @var ReflectionCallable
-     */
-    private $action;
-
-    /**
-     * @var Routing
-     */
-    private $routing;
+    private $container;
 
     /**
      * Constructor
@@ -50,14 +41,8 @@ class ActionMiddleware implements MiddlewareInterface{
      * @param   Routing $routing
      *  ルーティング結果
      */
-    public function __construct(
-        Kernel $kernel,
-        callable $action,
-        Routing $routing
-    ){
-        $this->kernel   = $kernel;
-        $this->action   = $action;
-        $this->routing  = $routing;
+    public function __construct(Container $container){
+        $this->container    = $container;
     }
 
     /**
@@ -67,22 +52,41 @@ class ActionMiddleware implements MiddlewareInterface{
         ServerRequestInterface $request,
         RequestHandlerInterface $handler
     ): ResponseInterface{
-        $response   = $this->kernel->getContainer()->invokeCallback(
-            $this->action,
+
+        // アクション実行前にアクションコールバックを使うイベントを実行
+        // 例) コールバックを包むコールバックを生成してアクションとする等
+
+        if(!is_callable($request->getAttribute("action"))){
+            throw new \LogicException;
+        }
+
+        if(
+            !is_object($request->getAttribute("routing"))
+            || !$request->getAttribute("routing") instanceof Routing
+        ){
+            throw new \LogicException;
+        }
+
+        $response   = $this->container->invokeCallback(
+            $request->getAttribute("action"),
             array_merge(
-                $this->routing->params,
+                $request->getAttribute("routing")->params,
                 [
                     "request"   => $request,
-                    "_route"    => $this->routing->name,
+                    "_route"    => $request->getAttribute("routing")->name,
                     "_handler"  => $handler,
                 ]
             ),
             [
                 ServerRequestInterface::class   => $request,
+                RequestInterface::class         => $request,
             ]
         );
 
-        if(!($response instanceof ResponseInterface)){
+        // アクション実行後にレスポンスを使うイベントを実行
+        // 例) Allow: jsonなリクエストの場合は配列のレスポンスをJsonResponseに置き換える等
+
+        if(!$response instanceof ResponseInterface){
             $class  = ResponseInterface::class;
             throw new Exception\ActionException(
                 "Action method must return an instance of the object"

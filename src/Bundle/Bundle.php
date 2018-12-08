@@ -13,21 +13,22 @@
  */
 namespace Fratily\Kernel\Bundle;
 
-use Fratily\Kernel\Kernel;
-use Fratily\Http\Server\RequestHandlerBuilder;
-use Symfony\Component\Console\Application;
+use Fratily\Container\ContainerFactory;
 
 /**
  *
  */
-abstract class Bundle implements DirectoryStructureInterface, MiddlewareRegisterInterface, CommandRegisterInterface{
-
-    use DirectoryStructureTrait;
+abstract class Bundle implements BundleInterface{
 
     /**
-     * @var Kernel
+     * @var string
      */
-    private $kernel;
+    private $environment;
+
+    /**
+     * @var bool
+     */
+    private $debug;
 
     /**
      * @var null|string
@@ -35,28 +36,44 @@ abstract class Bundle implements DirectoryStructureInterface, MiddlewareRegister
     protected $name;
 
     /**
-     * Constructor
-     *
-     * @param   Kernel  $kernel
-     *  カーネル
+     * @var null|string
      */
-    final public function __construct(Kernel $kernel){
-        $this->kernel   = $kernel;
+    protected $namespace;
+
+    /**
+     * @var null|string
+     */
+    protected $projectDir;
+
+    /**
+     * @var null|string
+     */
+    protected $srcDir;
+
+    /**
+     * {@inheritdoc}
+     */
+    public function __construct(string $environment, bool $debug){
+        $this->environment  = $environment;
+        $this->debug        = $debug;
     }
 
     /**
-     * 起動済みカーネルインスタンスを取得する
-     *
-     * @return  BootedKernel
+     * {@inheritdoc}
      */
-    public function getKernel(){
-        return $this->kernel;
+    final public function getEnvironment(): string{
+        return $this->environment;
     }
 
     /**
-     * バンドルの名前を取得する
-     *
-     * @return  string
+     * {@inheritdoc}
+     */
+    final public function isDebug(): bool{
+        return $this->debug;
+    }
+
+    /**
+     * {@inheritdoc}
      */
     public function getName(): string{
         if(null === $this->name){
@@ -82,19 +99,54 @@ abstract class Bundle implements DirectoryStructureInterface, MiddlewareRegister
     /**
      * {@inheritdoc}
      */
-    public function middlewareRegister(
-        RequestHandlerBuilder $builder,
-        array $options = []
-    ): void{
+    public function getNameSpace(): string{
+        if(null === $this->namespace){
+            $this->namespace    = (new \ReflectionObject($this))
+                ->getNamespaceName()
+            ;
+        }
+
+        return $this->namespace;
     }
 
     /**
      * {@inheritdoc}
      */
-    public function commandRegister(
-        Application $app,
-        array $options = []
-    ): void{
+    public function getProjectDir(): string{
+        if(null === $this->projectDir){
+            $this->projectDir   = $this->getSrcDir();
+
+            while(!file_exists($this->projectDir . "/composer.json")){
+                if($this->projectDir === dirname($this->projectDir)){ // Reaching root dir
+                    $this->projectDir   = $this->getSrcDir();
+                    break;
+                }
+
+                $this->projectDir   = dirname($this->projectDir);
+            }
+        }
+
+        return $this->projectDir;
+    }
+
+    /**
+     * {@inheritdoc}
+     */
+    public function getSrcDir(): string{
+        if(null === $this->srcDir){
+            $this->srcDir   = dirname(
+                (new \ReflectionObject($this))->getFileName()
+            );
+        }
+
+        return $this->srcDir;
+    }
+
+    /**
+     * {@inheritdoc}
+     */
+    public function getControllers(): array{
+        return [];
     }
 
     /**
@@ -107,5 +159,64 @@ abstract class Bundle implements DirectoryStructureInterface, MiddlewareRegister
      * {@inheritdoc}
      */
     public function shutdown(): void{
+    }
+
+    /**
+     * ソースコードディレクトリ内に存在するクラスのリストを取得する
+     *
+     * @param   string  $namespace
+     *  ネームスペース。ベースとしてsrcディレクトリのネームスペースが指定される
+     *  ため、`$this->getNameSpace() . "\\" . $namespace`で検索される。
+     * @param   bool    $recursive
+     *  子孫ディレクトリが存在した場合、それらの中のクラスも取得するか
+     * @param   callable    $filter
+     *  結果に追加するクラスをフィルタリングするためのコールバック
+     *
+     * @return  string[]
+     */
+    protected function getClasses(
+        string $namespace = null,
+        bool $recursive = true,
+        callable $filter = null
+    ): array{
+        $baseNameSpace  = $this->getNameSpace();
+        $searchDir      = $this->getSrcDir();
+        $result         = [];
+
+        if(null !== $namespace){
+            $namespace      = trim($namespace, "\\");
+            $baseNameSpace  = $this->getNameSpace() . "\\" . $namespace;
+            $searchDir      = realpath(
+                $this->getSrcDir()
+                . DIRECTORY_SEPARATOR
+                . str_replace("\\", DIRECTORY_SEPARATOR, $namespace)
+            );
+        }
+
+        if(false === $searchDir || !is_dir($searchDir)){
+            return $result;
+        }
+
+        foreach(FileSystem::getFiles($searchDir, $recursive) as $file){
+            $classFile  = substr($file, strlen($searchDir . DIRECTORY_SEPARATOR));
+
+            if(".php" !== substr($classFile, -4)){
+                continue;
+            }
+
+            $class  = $baseNameSpace . "\\" . substr($classFile, 0, -4);
+
+            if(!class_exists($class)){
+                continue;
+            }
+
+            if(null !== $filter && false === $filter($class)){
+                continue;
+            }
+
+            $result[]   = $class;
+        }
+
+        return $result;
     }
 }

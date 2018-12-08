@@ -13,7 +13,7 @@
  */
 namespace Fratily\Kernel\Bundle;
 
-use Fratily\Http\Server\RequestHandlerBuilder;
+use Fratily\Kernel\RequestHandlerBuilder;
 
 /**
  *
@@ -25,13 +25,8 @@ interface MiddlewareRegisterInterface{
      *
      * @param RequestHandlerBuilder $builder
      *  ハンドラのビルダー
-     * @param   mixed[] $options
-     *  オプション値のリスト
      *
      * @return  void
      */
-    public function middlewareRegister(
-        RequestHandlerBuilder $builder,
-        array $options
-    ): void;
+    public function middlewareRegister(RequestHandlerBuilder $builder): void;
 }

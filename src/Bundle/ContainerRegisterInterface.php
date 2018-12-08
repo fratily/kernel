@@ -13,25 +13,20 @@
  */
 namespace Fratily\Kernel\Bundle;
 
-use Symfony\Component\Console\Application;
+use Fratily\Container\ContainerFactory;
 
 /**
  *
  */
-interface CommandRegisterInterface{
+interface ContainerRegisterInterface{
 
     /**
-     * コマンドを登録する
+     * サービスコンテナを登録する
      *
-     * @param   Application $app
+     * @param   ContainerFactory    $factory
      *  アプリケーション
-     * @param   mixed[] $options
-     *  オプション値のリスト
      *
      * @return  void
      */
-    public function commandRegister(
-        Application $app,
-        array $options = []
-    ): void;
+    public function containerRegister(ContainerFactory $factory): void;
 }
